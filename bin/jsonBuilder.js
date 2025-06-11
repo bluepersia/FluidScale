@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { JSDOM } from 'jsdom';
 import { parseRules, nodeInit, getJSON } from '../fluidScale.js';
-import globby from 'globby';
+import { globby } from 'globby';
 let parser;
 let traverse;
 try {
@@ -47,19 +47,30 @@ nodeInit({
 
 generateFluidRulesJSON();
 
+function resolvePath(cssPath, htmlFilePath) {
+  if (/^(https?:)?\/\//.test(cssPath)) {
+    // External URL or CDN
+    return null;
+  }
+  if (cssPath.startsWith ('./'))
+    return path.resolve(path.dirname(htmlFilePath), cssPath);
+
+  return cssPath;
+}
+
 async function generateFluidRulesJSON() {
   for (const [key, globs] of Object.entries(inputs)) {
     const inputFiles = await globby(globs);
 
     const cssFiles = inputFiles.filter((file) => file.endsWith('.css'));
     for (const file of inputFiles) {
-      const content = fs.readFileSync(file);
+      const content = fs.readFileSync(file).toString();
 
       if (file.endsWith('.html'))
         cssFiles.push(
-          [...content.matchAll(/<link\s+[^>]*href=["']([^"']+\.css)["']/g)].map(
-            (m) => m[1]
-          )
+          ...[...content.matchAll(/<link\s+[^>]*href=["']([^"']+\.css)["']/g)].map(
+            (m) => resolvePath (m[1], file)
+          ).filter (m => m)
         );
       else if (/\.[jt]sx?$/.test(file)) {
         if (parser) {
@@ -83,11 +94,11 @@ async function generateFluidRulesJSON() {
           }
         } else {
           cssFiles.push(
-            [
+            ...[
               ...content.matchAll(
                 /import\s+(?:(?:[\w{}*]+)\s+from\s+)?["']([^"']+\.css)["']/g
               ),
-            ].map((m) => m[1])
+            ].map((m) => resolvePath (m[1], file)).filter (m => m)
           );
         }
       }

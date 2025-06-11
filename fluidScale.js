@@ -109,7 +109,7 @@ class FluidScale {
     { minBp, maxBp, checkUsage = false, json, autoTransition = true }
   ) {
     if (json) await loadJSON(json);
-
+    
     let wasParsed = stylesParsed;
 
     if (!stylesParsed && (!json || !jsonLoaded.includes(json))) {
@@ -383,7 +383,6 @@ class FluidProperty {
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
-    if (!progress) console.log(this.el.classList);
 
     return breakpointValues.minValues.map((val, index) => {
       if (this.noMin)
@@ -457,7 +456,7 @@ class FluidPropertyCombo extends FluidProperty {
 }
 
 // before FluidScale …
-const fluidVariableSelectors = {};
+let fluidVariableSelectors = {};
 let stylesParsed = false;
 // Map<variableName, Array<{ selector: string, value: string, bpIndex: number }>>
 
@@ -517,6 +516,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       );
 
     if (autoBreakpoints) breakpoints = breakpoints.sort((a, b) => a - b);
+
   }
 
   for (const rule of rules) {
@@ -571,7 +571,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
         }
 
-        if (!value && autoApply)
+        if (!value && !minimizedMode)
           value = prevValues[rule.selectorText]?.[variableName]?.at(-1) || null;
 
         if (!value) {
@@ -607,10 +607,9 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         if (autoApply || fluidPropertyName.includes('-min')) {
           minValues = value.split(' ');
           let maxVal;
-
           if (autoApply && minimizedMode) {
             // Search future breakpoints for the same selector and variable
-            for (let i = bpIndex; i < mediaBps.length; i++) {
+            for (let i = bpIndex + 1; i < mediaBps.length; i++) {
               const { cssRules, width } = mediaBps[i];
               const futureRule = [...cssRules].find((r) => {
                 processComments(r);
@@ -638,9 +637,10 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
               : fluidPropertyName.replace('-min', '-max');
             maxVal = rule.style.getPropertyValue(`--fluid-${maxField}`).trim();
 
+
             if (!maxVal) continue;
           }
-
+         
           maxValues = maxVal.split(' ');
           isCombo = true;
         } else {
@@ -704,6 +704,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
   if (bpIndex === 0) {
     for (const [index, { cssRules, width }] of mediaBps.entries()) {
       if (autoBreakpoints && index === 0) continue;
+      cssRules.CSSRule = rules.CSSRule;
       parseRules(
         cssRules,
         breakpoints ? breakpoints.indexOf(width) : -1,
@@ -781,27 +782,29 @@ export { FluidScale };
 let jsonLoaded = [];
 
 export async function loadJSON(path) {
+  const originalPath = path;
+  let config;
   try {
-    const config = await fetch('fluid-scale.config.js');
-
-    if (config) path = path.join(config.outputDir, path);
+    config = (await import('/fluid-scale.config.js')).default;
+   
+    if (config) path = `${config.outputDir.startsWith ('/') ? config.outputDir : `/${config.outputDir}`}/${path}`
+ 
   } catch (err) {
-    console.warn('Failed to load JSON. Runtime scan will be applied instead.');
+    console.warn('Failed to load config. Runtime scan will be applied instead.');
   }
-
+ 
+  if (!config)
+    return;
   if (!path.endsWith('.json')) path += '.json';
 
   if (jsonLoaded.includes(path)) return;
 
-  jsonLoaded.push(path);
 
   try {
-    const res = await fetch(path);
-  } catch (err) {
-    console.warn('Failed to load JSON. Runtime scan will be applied instead.');
-  }
+    
+  const res = await fetch(path);
 
-  const json = await res.json();
+    const json = await res.text ();
 
   const revived = JSON.parse(json, (key, value) => {
     if (value && value.__type__ === 'Map') {
@@ -810,8 +813,14 @@ export async function loadJSON(path) {
     return value;
   });
 
-  breakpoints = revived.breakpoints;
+  breakpoints = revived.bps;
   fluidVariableSelectors = revived.fluidVariableSelectors;
+  jsonLoaded.push(originalPath);
+  } catch (err) {   
+    console.warn('Failed to load JSON. Runtime scan will be applied instead.');
+
+  }
+
 }
 function waitForJSON(path, checkInterval = 100) {
   return new Promise((resolve) => {
@@ -828,15 +837,13 @@ export function nodeInit({
   bps = 'auto',
   minBp,
   maxBp,
-  baseBp,
-  usingPartials: usingPs,
-  autoApply: autoApp,
+  usingPartials: usingPs = true,
+  autoApply: autoApp = true,
   autoTransition: autoT = true,
   minMode = true,
   enableComments: customCmm = false,
 }) {
   breakpoints = bps;
-  baseBreakpoint = baseBp;
   minBreakpoint = minBp;
   maxBreakpoint = maxBp;
   usingPartials = usingPs;
