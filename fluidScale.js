@@ -79,6 +79,7 @@ let usingPartials = true;
 let autoApply = true;
 let minimizedMode = true;
 let enableComments = false;
+let observerPaused = false;
 
 class FluidScale {
   fluidProperties = [];
@@ -88,7 +89,7 @@ class FluidScale {
   maxBreakpoint = 1085;
 
   constructor(elList, bps, config = {}) {
-    if (!Array.isArray(elList))
+    if (elList && !Array.isArray(elList))
       elList = [elList, ...elList.querySelectorAll('*')];
 
     if (config.observeDestroy) {
@@ -175,7 +176,7 @@ class FluidScale {
       }
     } else this.fluidVariableSelectors = fluidVariableSelectors;
 
-    this.addElements(elList);
+    if (elList) this.addElements(elList);
   }
 
   onMutation(mutations) {
@@ -190,64 +191,66 @@ class FluidScale {
   }
 
   addElements(els) {
-    els.forEach((el) => {
-      const classKey = getClassSelector(el);
+    els
+      .filter((el) => !this.fluidProperties.find((fp) => fp.el === el))
+      .forEach((el) => {
+        const classKey = getClassSelector(el);
 
-      if (this.classCache.has(classKey)) {
-        const classCacheArr = this.classCache.get(classKey);
-        classCacheArr.forEach(({ variableName, arr, breakpoints }) => {
-          const fluidProperty = FluidProperty.Parse(
-            el,
-            variableName,
-            arr,
-            breakpoints,
-            this.autoTransition
-          );
+        if (this.classCache.has(classKey)) {
+          const classCacheArr = this.classCache.get(classKey);
+          classCacheArr.forEach(({ variableName, arr, breakpoints }) => {
+            const fluidProperty = FluidProperty.Parse(
+              el,
+              variableName,
+              arr,
+              breakpoints,
+              this.autoTransition
+            );
 
-          this.fluidProperties.push(fluidProperty);
-        });
-      } else {
-        const classCacheArr = [];
-        this.classCache.set(classKey, classCacheArr);
+            this.fluidProperties.push(fluidProperty);
+          });
+        } else {
+          const classCacheArr = [];
+          this.classCache.set(classKey, classCacheArr);
 
-        Object.keys(this.fluidVariableSelectors).forEach((key) => {
-          if (el.matches(key)) {
-            const rulesByBp = this.fluidVariableSelectors[key];
+          Object.keys(this.fluidVariableSelectors).forEach((key) => {
+            if (el.matches(key)) {
+              const rulesByBp = this.fluidVariableSelectors[key];
 
-            const bpObj = [...rulesByBp.entries()];
+              const bpObj = [...rulesByBp.entries()];
 
-            const variableMap = {};
-            bpObj.forEach(([bpIndex, bpMap]) => {
-              const bpMapEntries = Object.entries(bpMap);
+              const variableMap = {};
+              bpObj.forEach(([bpIndex, bpMap]) => {
+                const bpMapEntries = Object.entries(bpMap);
 
-              for (const [variableName, ruleObj] of bpMapEntries) {
-                if (!variableMap[variableName])
-                  variableMap[variableName] = bpObj.map(
-                    ([bpIndex, bpMap]) => bpMap[variableName]
-                  );
-              }
-            });
-
-            for (const [variableName, arr] of Object.entries(variableMap)) {
-              const fluidProperty = FluidProperty.Parse(
-                el,
-                variableName,
-                arr,
-                this.breakpoints,
-                this.autoTransition
-              );
-              this.fluidProperties.push(fluidProperty);
-
-              classCacheArr.push({
-                variableName,
-                arr,
-                breakpoints: this.breakpoints,
+                for (const [variableName, ruleObj] of bpMapEntries) {
+                  if (!variableMap[variableName])
+                    variableMap[variableName] = bpObj.map(
+                      ([bpIndex, bpMap]) => bpMap[variableName]
+                    );
+                }
               });
+
+              for (const [variableName, arr] of Object.entries(variableMap)) {
+                const fluidProperty = FluidProperty.Parse(
+                  el,
+                  variableName,
+                  arr,
+                  this.breakpoints,
+                  this.autoTransition
+                );
+                this.fluidProperties.push(fluidProperty);
+
+                classCacheArr.push({
+                  variableName,
+                  arr,
+                  breakpoints: this.breakpoints,
+                });
+              }
             }
-          }
-        });
-      }
-    });
+          });
+        }
+      });
 
     if (this.autoTransition) {
       const { time, easing, delay } =
@@ -737,6 +740,8 @@ function observeDomChanges(
   root = document.body
 ) {
   const observer = new MutationObserver((mutations) => {
+    if (observerPaused) return;
+
     const added = [];
     const removed = [];
 
@@ -841,15 +846,14 @@ export function nodeInit({
 }
 
 export default async function init({
-  root = document.body,
+  autoObserve = true,
+  root = autoObserve ? document.body : null,
   breakpoints: bps = 'auto',
   minBreakpoint: minBp,
   maxBreakpoint: maxBp,
-  autoObserve = true,
   usingPartials: usingPs = true,
   checkUsage = false,
   autoApply: autoApp = true,
-  initSingleton = true,
   json = '',
   autoTransition = true,
   minimizedMode: minMode = true,
@@ -864,29 +868,30 @@ export default async function init({
   minimizedMode = minMode;
   enableComments = customCmm;
 
-  if (autoObserve) {
-    observeDomChanges({
-      onAdded: (els) => fluidScale.addElements(els),
-      onRemoved: (els) => fluidScale.removeElements(els),
+  if (fluidScale) {
+    if (json) {
+      observerPaused = true;
+      await loadJSON(json);
+      observerPaused = false;
+    }
+    fluidScale.addElements(root);
+  } else {
+    const fs = new FluidScale(root, breakpoints, {
+      minBp,
+      maxBp,
+      observeDestroy: false,
+      checkUsage,
+      json,
+      autoTransition,
     });
-  }
 
-  if (initSingleton) {
-    if (fluidScale)
-      console.warn(
-        'Initializing FluidScale more than once. The same instance will be returned.'
-      );
-    else {
-      const fs = new FluidScale(root, breakpoints, {
-        minBp,
-        maxBp,
-        observeDestroy: false,
-        checkUsage,
-        json,
-        autoTransition,
+    fluidScale = fs;
+
+    if (autoObserve) {
+      observeDomChanges({
+        onAdded: (els) => fluidScale.addElements(els),
+        onRemoved: (els) => fluidScale.removeElements(els),
       });
-
-      fluidScale = fs;
     }
   }
 
