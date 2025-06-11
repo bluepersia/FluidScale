@@ -52,7 +52,7 @@ export default {
 
 You can also specify CSS files directly.
 
-Make your you initialize FluidScale with the right JSON ID:
+Make sure you initialize FluidScale with the right JSON ID:
 
 ```js
 fluidScale({ json: 'homepage' });
