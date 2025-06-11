@@ -561,7 +561,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
         let value;
 
-        if (bps) {
+        if (bps && !minimizedMode) {
           const lastBp = [...bps.values()].at(-1);
           if (lastBp) {
             const variableObj = lastBp[variableName];
@@ -586,7 +586,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
         if (!value) continue;
 
-        if (autoApply) {
+        if (!minimizedMode) {
           if (!prevValues[rule.selectorText])
             prevValues[rule.selectorText] = {};
 
