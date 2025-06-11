@@ -1,0 +1,27 @@
+{
+  "name": "fluid-scale",
+  "version": "1.0.0",
+  "description": "Create beautiful fluid responsive designs easily.",
+  "main": "fluidScale.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "fluid-build": "./bin/jsonBuilder.js",
+    "fluid-install-react": "./bin/installReact.js"
+  },
+  "keywords": [
+    "fluid",
+    "design",
+    "responsive",
+    "easy",
+    "fast"
+  ],
+  "author": "Marco Zimmermann",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "globby": "^14.1.0",
+    "jsdom": "^26.1.0"
+  }
+}
