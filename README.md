@@ -63,7 +63,7 @@ Once done and you've tested everything in dev mode, build the JSON
 
 FluidScale will now load asynchronously from JSON while the default values are applied instantly on load.
 
-### Approach 2: Usage Checks
+### 🕵️‍♂️ Approach 2: Usage Checks
 
 You can have FluidScale check whether particular content uses FluidScale, and only scan that content.
 
