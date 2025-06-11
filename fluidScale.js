@@ -77,6 +77,7 @@ let minBreakpoint;
 let maxBreakpoint;
 let usingPartials = true;
 let autoApply = true;
+let autoTransition = true;
 let minimizedMode = true;
 let enableComments = false;
 let observerPaused = false;
@@ -105,7 +106,7 @@ class FluidScale {
   async init(
     elList,
     bps,
-    { minBp, maxBp, checkUsage = false, json, autoTransition }
+    { minBp, maxBp, checkUsage = false, json, autoTransition = true }
   ) {
     if (json) await loadJSON(json);
 
@@ -648,7 +649,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           maxValues = [valueArr[1]];
         }
         let transition;
-        if (bpIndex === 0)
+        if (bpIndex === 0 && autoTransition)
           transition = rule.style.getPropertyValue('transition');
 
         const unitValues = minValues.map((val) =>
@@ -830,7 +831,7 @@ export function nodeInit({
   baseBp,
   usingPartials: usingPs,
   autoApply: autoApp,
-  autoTransition = true,
+  autoTransition: autoT = true,
   minMode = true,
   enableComments: customCmm = false,
 }) {
@@ -841,6 +842,7 @@ export function nodeInit({
   usingPartials = usingPs;
   autoApply = autoApp;
   autoBreakpoints = bps === 'auto';
+  autoTransition = autoT;
   minimizedMode = minMode;
   enableComments = customCmm;
 }
@@ -851,24 +853,26 @@ export default async function init({
   breakpoints: bps = 'auto',
   minBreakpoint: minBp,
   maxBreakpoint: maxBp,
-  usingPartials: usingPs = true,
+  usingPartials: usingPs,
   checkUsage = false,
-  autoApply: autoApp = true,
+  autoApply: autoApp,
   json = '',
-  autoTransition = true,
-  minimizedMode: minMode = true,
-  enableComments: customCmm = false,
+  autoTransition: autoT,
+  minimizedMode: minMode,
+  enableComments: customCmm,
 } = {}) {
   autoBreakpoints = bps === 'auto';
   breakpoints = autoBreakpoints ? null : bps;
   minBreakpoint = minBp;
   maxBreakpoint = maxBp;
-  usingPartials = usingPs;
-  autoApply = autoApp;
-  minimizedMode = minMode;
-  enableComments = customCmm;
+  if (usingPs) usingPartials = usingPs;
+  if (autoApp) autoApply = autoApp;
+  if (autoT) autoTransition = autoT;
+  if (minMode) minimizedMode = minMode;
+  if (customCmm) enableComments = customCmm;
 
   if (fluidScale) {
+    fluidScale.autoTransition = autoTransition;
     if (json) {
       observerPaused = true;
       await loadJSON(json);
