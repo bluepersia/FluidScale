@@ -1,6 +1,6 @@
 ![Tool Logo](./assets/logo.jpg)
 
-Welcome to FluidScale, a JS runtime style engine that applies fluid scaling to your CSS.
+Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
 Write:
 
