@@ -265,6 +265,9 @@ class FluidScale {
         el.style.transition = transitions.join(', ');
       }
     }
+
+    if (this.observeRemove) {
+    }
     this.update();
   }
 
@@ -303,9 +306,11 @@ class FluidScale {
       }
     }
 
-    this.fluidProperties.forEach((fp) =>
-      fp.update(currentBpIndex, currentWidth)
-    );
+    this.fluidProperties = this.fluidProperties.filter((fp) => {
+      if (!fp.el.isConnected) return false;
+      fp.update(currentBpIndex, currentWidth);
+      return true;
+    });
   }
 
   destroy() {
@@ -494,7 +499,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       .sort((a, b) => a.width - b.width);
 
     if (autoBreakpoints) {
-      if (mediaBps.length <= 1) return;
+      if (mediaBps.length <= 2) return;
       breakpoints = mediaBps.map((mediaBp) => mediaBp.width);
     }
 
@@ -743,15 +748,15 @@ function observeDomChanges(
         }
       }
       // Collect removed nodes
-      for (const node of mutation.removedNodes) {
+      /*for (const node of mutation.removedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           removed.push(node, ...node.querySelectorAll('*'));
         }
-      }
+      }*/
     }
 
     if (added.length > 0) onAdded(added);
-    if (removed.length > 0) onRemoved(removed);
+    //if (removed.length > 0) onRemoved(removed);
   });
 
   observer.observe(root, {
@@ -866,20 +871,26 @@ export default async function init({
     });
   }
 
-  if (initSingleton && !fluidScale) {
-    const fs = new FluidScale(root, breakpoints, {
-      minBp,
-      maxBp,
-      observeDestroy: false,
-      checkUsage,
-      json,
-      autoTransition,
-    });
+  if (initSingleton) {
+    if (fluidScale)
+      console.warn(
+        'Initializing FluidScale more than once. The same instance will be returned.'
+      );
+    else {
+      const fs = new FluidScale(root, breakpoints, {
+        minBp,
+        maxBp,
+        observeDestroy: false,
+        checkUsage,
+        json,
+        autoTransition,
+      });
 
-    fluidScale = fs;
-
-    return fluidScale;
+      fluidScale = fs;
+    }
   }
+
+  return fluidScale;
 }
 function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   let fs = fluidScale;

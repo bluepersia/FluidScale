@@ -84,3 +84,14 @@ For inline styles, add a comment at the very top:
 ```
 
 Now FluidScale will skip the CSS that doesn't have these markers, speeding things up.
+
+## 🧱 Isolation
+
+By default, FluidScale watches the whole DOM to apply itself to any new content, and remove old content.
+If the whole team uses FluidScale, this is a solid approach. However, if that's not the case, it may be better to only apply FluidScale to your own content.
+
+```js
+const fluidScale = fluidScale({ autoObserve: false });
+
+fluidScale.addElements(...parentAndChildren);
+```
