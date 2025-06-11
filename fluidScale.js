@@ -109,7 +109,7 @@ class FluidScale {
     { minBp, maxBp, checkUsage = false, json, autoTransition = true }
   ) {
     if (json) await loadJSON(json);
-    
+
     let wasParsed = stylesParsed;
 
     if (!stylesParsed && (!json || !jsonLoaded.includes(json))) {
@@ -383,7 +383,6 @@ class FluidProperty {
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
-
     return breakpointValues.minValues.map((val, index) => {
       if (this.noMin)
         return `${val + breakpointValues.rangeValues[index] * progress}${
@@ -516,7 +515,6 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       );
 
     if (autoBreakpoints) breakpoints = breakpoints.sort((a, b) => a - b);
-
   }
 
   for (const rule of rules) {
@@ -609,7 +607,12 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           let maxVal;
           if (autoApply && minimizedMode) {
             // Search future breakpoints for the same selector and variable
-            for (let i = bpIndex + 1; i < mediaBps.length; i++) {
+            const startIndex = mediaBps.findIndex(
+              ({ width }) => width === breakpoints[bpIndex + 1]
+            );
+            if (startIndex === -1) continue;
+
+            for (let i = startIndex; i < mediaBps.length; i++) {
               const { cssRules, width } = mediaBps[i];
               const futureRule = [...cssRules].find((r) => {
                 processComments(r);
@@ -637,10 +640,9 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
               : fluidPropertyName.replace('-min', '-max');
             maxVal = rule.style.getPropertyValue(`--fluid-${maxField}`).trim();
 
-
             if (!maxVal) continue;
           }
-         
+
           maxValues = maxVal.split(' ');
           isCombo = true;
         } else {
@@ -786,41 +788,42 @@ export async function loadJSON(path) {
   let config;
   try {
     config = (await import('/fluid-scale.config.js')).default;
-   
-    if (config) path = `${config.outputDir.startsWith ('/') ? config.outputDir : `/${config.outputDir}`}/${path}`
- 
+
+    if (config)
+      path = `${
+        config.outputDir.startsWith('/')
+          ? config.outputDir
+          : `/${config.outputDir}`
+      }/${path}`;
   } catch (err) {
-    console.warn('Failed to load config. Runtime scan will be applied instead.');
+    console.warn(
+      'Failed to load config. Runtime scan will be applied instead.'
+    );
   }
- 
-  if (!config)
-    return;
+
+  if (!config) return;
   if (!path.endsWith('.json')) path += '.json';
 
   if (jsonLoaded.includes(path)) return;
 
-
   try {
-    
-  const res = await fetch(path);
+    const res = await fetch(path);
 
-    const json = await res.text ();
+    const json = await res.text();
 
-  const revived = JSON.parse(json, (key, value) => {
-    if (value && value.__type__ === 'Map') {
-      return new Map(value.value);
-    }
-    return value;
-  });
+    const revived = JSON.parse(json, (key, value) => {
+      if (value && value.__type__ === 'Map') {
+        return new Map(value.value);
+      }
+      return value;
+    });
 
-  breakpoints = revived.bps;
-  fluidVariableSelectors = revived.fluidVariableSelectors;
-  jsonLoaded.push(originalPath);
-  } catch (err) {   
+    breakpoints = revived.bps;
+    fluidVariableSelectors = revived.fluidVariableSelectors;
+    jsonLoaded.push(originalPath);
+  } catch (err) {
     console.warn('Failed to load JSON. Runtime scan will be applied instead.');
-
   }
-
 }
 function waitForJSON(path, checkInterval = 100) {
   return new Promise((resolve) => {
