@@ -67,6 +67,7 @@ FluidScale will now load asynchronously from JSON while the default values are a
 ### 🕵️‍♂️ Approach 2: Usage Checks
 
 You can have FluidScale check whether particular content uses FluidScale, and only scan that content.
+**Note:** If you're building to and loading from JSON, you can skip this approach.
 
 ```js
 fluidScale({ checkUsage: true });
