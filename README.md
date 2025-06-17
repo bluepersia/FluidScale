@@ -92,11 +92,41 @@ By default, FluidScale watches the whole DOM to apply itself to any new content.
 If the whole team uses FluidScale, this is a solid approach. However, if that's not the case, it may be better to only apply FluidScale to your own content.
 
 ```js
-fluidScale({ autoObserve: false, json: 'homepage' });
+fluidScale({ autoObserve: false });
 ```
 
 then
 
 ```js
 fluidScale.addElements(...parentAndChildren);
+```
+
+## 📐 Advanced
+
+If you want more precise control over the default style applied before FluidScale has loaded and applied:
+
+```js
+fluidScale({ autoApply: false, minimizedMode: false });
+```
+
+For properties with multiple values:
+
+```css
+.recipe-card {
+  --fluid-padding-min: 2rem 1.5rem;
+  --fluid-padding-max: 4rem 3rem;
+  padding: var(
+    --fluid-padding-value,
+    clamp(2rem, 3vw + 1rem, 4rem) clamp(1.5rem, 2vw + 0.8rem, 3rem)
+  );
+}
+```
+
+For single-value properties:
+
+```css
+.recipe-card {
+  --fluid-font-size: 2rem 4rem;
+  font-size: var(--fluid-font-size-value, clamp(2rem, 2vw + 2rem, 4rem));
+}
 ```
