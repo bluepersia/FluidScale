@@ -105,7 +105,10 @@ async function generateFluidRulesJSON() {
     }
     let html = '<!DOCTYPE html><html><head>';
 
-    for (const cssFile of cssFiles) {
+    for (let cssFile of cssFiles) {
+      if (cssFile.startsWith ('/'))
+        cssFile = path.join(process.cwd(), cssFile.replace(/^\/+/, ''));
+      
       const cssContent = fs.readFileSync(cssFile, 'utf8');
       html += `<style>${cssContent}</style>`;
     }

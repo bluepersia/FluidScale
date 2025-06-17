@@ -112,7 +112,7 @@ class FluidScale {
 
     let wasParsed = stylesParsed;
 
-    if (!stylesParsed && (!json || !jsonLoaded.includes(json))) {
+    if (!stylesParsed && (!json || jsonLoaded !==  json)) {
       // run once on load
       for (const sheet of checkUsage
         ? Array.from(document.styleSheets).filter((sheet) => {
@@ -523,11 +523,10 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         if (!enableComments || rule.comments) return;
 
         let comments;
-        const raw = rule.cssText;
+        const rawRuleText = rule.cssText;
         const matches = rawRuleText.match(
           /\/\*\s*fluid-([a-z-]+):\s*([^\*]+?)\s*\*\//gi
         );
-
         if (matches) {
           comments = {};
 
@@ -781,10 +780,11 @@ export { fluidScale };
 
 export { FluidScale };
 
-let jsonLoaded = [];
+let jsonLoaded;
 
 export async function loadJSON(path) {
   const originalPath = path;
+
   let config;
   try {
     config = (await import('/fluid-scale.config.js')).default;
@@ -804,7 +804,6 @@ export async function loadJSON(path) {
   if (!config) return;
   if (!path.endsWith('.json')) path += '.json';
 
-  if (jsonLoaded.includes(path)) return;
 
   try {
     const res = await fetch(path);
@@ -820,7 +819,7 @@ export async function loadJSON(path) {
 
     breakpoints = revived.bps;
     fluidVariableSelectors = revived.fluidVariableSelectors;
-    jsonLoaded.push(originalPath);
+    jsonLoaded = originalPath;
   } catch (err) {
     console.warn('Failed to load JSON. Runtime scan will be applied instead.');
   }
@@ -875,11 +874,11 @@ export default async function init({
   breakpoints = autoBreakpoints ? null : bps;
   minBreakpoint = minBp;
   maxBreakpoint = maxBp;
-  if (usingPs) usingPartials = usingPs;
-  if (autoApp) autoApply = autoApp;
-  if (autoT) autoTransition = autoT;
-  if (minMode) minimizedMode = minMode;
-  if (customCmm) enableComments = customCmm;
+  if (typeof usingPs === 'boolean') usingPartials = usingPs;
+  if (typeof autoApp === 'boolean') autoApply = autoApp;
+  if (typeof autoT === 'boolean') autoTransition = autoT;
+  if (typeof minMode === 'boolean') minimizedMode = minMode;
+  if (typeof customCmm === 'boolean') enableComments = customCmm;
 
   if (fluidScale) {
     fluidScale.autoTransition = autoTransition;

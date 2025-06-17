@@ -5,11 +5,12 @@ Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect flui
 Write:
 
 ```css
-@media (min-width: 375px) {
-  /* Set the baseline minimum to scale from */
-}
 .recipe-card {
   padding: 2rem;
+}
+
+@media (min-width: 375px) {
+  /* Set the baseline minimum to scale from */
 }
 
 @media (min-width: 768px) {
