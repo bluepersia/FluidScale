@@ -1,6 +1,6 @@
 {
   "name": "fluid-scale",
-  "version": "0.1.0",
+  "version": "0.0.1-alpha",
   "description": "Create beautiful fluid responsive designs easily.",
   "main": "fluidScale.js",
   "scripts": {
@@ -20,7 +20,7 @@
   "author": "Marco Zimmermann",
   "license": "ISC",
   "type": "module",
-  "devDependencies": {
+  "dependencies": {
     "globby": "^14.1.0",
     "jsdom": "^26.1.0"
   }
