@@ -37,7 +37,7 @@ There are two approaches to optimize the final build.
 
 ### 📦 Approach 1: JSON Builder (recommended)
 
-Set up `fluid-scale.config.js` in your project root.
+Set up `fluid-scale.config.js`.
 
 Configure it, e.g.:
 
@@ -47,9 +47,12 @@ export default {
     'homepage:' ['src/homepage/**/*.html'],
     'about-us': ['src/about-us/**/*.html'],
   },
-  output: 'public/fluid-scale',
+  outputRoot: 'public',
+  outputDir: 'fluid-scale', //Subfolder to store the JSON files in root
 };
 ```
+
+Store the config in the root. Both config and files must be accessible via `/` at runtime.
 
 You can also specify CSS files directly.
 

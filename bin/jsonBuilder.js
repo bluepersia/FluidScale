@@ -25,13 +25,14 @@ Map.prototype.toJSON = function () {
 
 export default async function loadConfig() {
   return await import(
-    path.resolve(process.cwd(), 'fluid-scale.config.js')
+    path.resolve(process.cwd(), 'public', 'fluid-scale.config.js')
   ).then((mod) => mod.default);
 }
 
 const {
   inputs,
   outputDir,
+  outputRoot,
   breakpoints,
   minBreakpoint,
   maxBreakpoint,
@@ -106,8 +107,8 @@ async function generateFluidRulesJSON() {
     let html = '<!DOCTYPE html><html><head>';
 
     for (let cssFile of cssFiles) {
-      if (cssFile.startsWith ('/'))
-        cssFile = path.join(process.cwd(), cssFile.replace(/^\/+/, ''));
+      //if (cssFile.startsWith ('/'))
+       // cssFile = path.join(process.cwd(), cssFile.replace(/^\/+/, ''));
       
       const cssContent = fs.readFileSync(cssFile, 'utf8');
       html += `<style>${cssContent}</style>`;
@@ -122,7 +123,7 @@ async function generateFluidRulesJSON() {
       sheet.cssRules.CSSRule = dom.window.CSSRule;
       parseRules(sheet.cssRules, 0);
     }
-    const outPath = path.join(outputDir, `${key}.json`);
+    const outPath = path.join(outputRoot, outputDir, `${key}.json`);
     await fs.promises.mkdir (path.dirname(outPath), { recursive:true});
     await fs.promises.writeFile(
       outPath,

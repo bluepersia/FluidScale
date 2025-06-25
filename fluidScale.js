@@ -91,18 +91,22 @@ class FluidScale {
   minBreakpoint = 300;
   maxBreakpoint = 1085;
 
-  constructor(elList, bps, config = {}) {
+  static async create (elList, bps, config = {})
+  {
     if (elList && !Array.isArray(elList))
       elList = [elList, ...elList.querySelectorAll('*')];
 
+    const fs = new FluidScale (elList, config);
+    await fs.init (elList, bps, config);
+    return fs;
+  }
+  constructor(elList, config = {}) {
     if (config.observeDestroy) {
       this.element = elList[0];
       this.parent = this.element.parentElement;
       this.observer = new MutationObserver(this.onMutation.bind(this));
       this.observer.observe(this.parent, { childList: true });
     }
-
-    this.init(elList, bps, config);
   }
 
   async init(
@@ -115,6 +119,7 @@ class FluidScale {
     let wasParsed = stylesParsed;
 
     if (!stylesParsed && (!json || jsonLoaded !==  json)) {
+ 
       // run once on load
       for (const sheet of checkUsage
         ? Array.from(document.styleSheets).filter((sheet) => {
@@ -194,7 +199,7 @@ class FluidScale {
   }
 
   addElements(els) {
-    console.log (els);
+
     els
       .filter((el) => !this.fluidProperties.find((fp) => fp.el === el))
       .forEach((el) => {
@@ -784,20 +789,16 @@ export { fluidScale };
 export { FluidScale };
 
 let jsonLoaded;
-const configPath = new URL('./fluid-scale.config.js', import.meta.url).toString();
 export async function loadJSON(path) {
   const originalPath = path;
-
+  
   let config;
   try {
-    config = (await import(configPath)).default;
+    config = (await import('/fluid-scale.config.js')).default;
 
     if (config)
-      path = `${
-        config.outputDir.startsWith('/')
-          ? config.outputDir
-          : `/${config.outputDir}`
-      }/${path}`;
+      path = `/${config.outputDir}/${path}`;
+
   } catch (err) {
     console.warn(
       'Failed to load config. Runtime scan will be applied instead.'
@@ -806,7 +807,6 @@ export async function loadJSON(path) {
 
   if (!config) return;
   if (!path.endsWith('.json')) path += '.json';
-
 
   try {
     const res = await fetch(path);
@@ -892,7 +892,7 @@ export default async function init({
     }
     fluidScale.addElements(root);
   } else {
-    const fs = new FluidScale(root, breakpoints, {
+    const fs = await FluidScale.create (root, breakpoints, {
       minBp,
       maxBp,
       observeDestroy: false,
