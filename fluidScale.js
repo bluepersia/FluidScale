@@ -192,6 +192,7 @@ class FluidScale {
   }
 
   addElements(els) {
+    console.log (els);
     els
       .filter((el) => !this.fluidProperties.find((fp) => fp.el === el))
       .forEach((el) => {

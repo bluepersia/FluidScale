@@ -95,7 +95,7 @@ By default, FluidScale watches the whole DOM to apply itself to any new content.
 If the whole team uses FluidScale, this is a solid approach. However, if that's not the case, it may be better to only apply FluidScale to your own content.
 
 ```js
-fluidScale({ autoObserve: false });
+const fluidScale = await fluidScale({ autoObserve: false });
 ```
 
 then
