@@ -37,8 +37,6 @@ There are two approaches to optimize the final build.
 
 ### 📦 Approach 1: JSON Builder (recommended)
 
-**Important: If you are the sole user of FluidScale on the team, this approach is fine. If `npx fluid-build` is integrated into the build pipeline, also great. But if several people use it privately, the JSON files may collide as 2+ people work on the same page. If this happens, kindly request to add `npx fluid-build` to the build pipeline. It costs nothing for end-users.**
-
 Set up `fluid-scale.config.js` in your project root.
 
 Configure it, e.g.:
@@ -65,6 +63,8 @@ Once done and you've tested everything in dev mode, build the JSON
 `npx fluid-build`
 
 FluidScale will now load asynchronously from JSON while the default values are applied instantly on load.
+
+**Important: JSON output may collide if several people use privately. Kindly ask the team to integrate `npx fluid-build` into the build pipeline - it costs end-users nothing.**
 
 ### 🕵️‍♂️ Approach 2: Usage Checks
 
