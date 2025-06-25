@@ -122,9 +122,10 @@ async function generateFluidRulesJSON() {
       sheet.cssRules.CSSRule = dom.window.CSSRule;
       parseRules(sheet.cssRules, 0);
     }
-
-    fs.writeFileSync(
-      path.join(outputDir, `${key}.json`),
+    const outPath = path.join(outputDir, `${key}.json`);
+    await fs.promises.mkdir (path.dirname(outPath), { recursive:true});
+    await fs.promises.writeFile(
+      outPath,
       JSON.stringify(getJSON(), null, 2)
     );
   }
