@@ -3,6 +3,14 @@
   "version": "0.0.1-alpha",
   "description": "Create beautiful fluid responsive designs easily.",
   "main": "fluidScale.js",
+  "author": {
+    "name": "Marco Zimmermann",
+    "email": "marcoenriquezimmermann@gmail.com",
+    "url": "https://github.com/bluepersia"
+  },
+  "bugs": {
+    "url": "https://github.com/bluepersia/FluidScale/issues"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
