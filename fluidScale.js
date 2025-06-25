@@ -1,5 +1,6 @@
 let React;
 
+/*
 async function loadReact() {
   try {
     React = await import('react');
@@ -7,6 +8,7 @@ async function loadReact() {
 }
 
 loadReact();
+*/
 
 const fluidPropertyNames = [
   'padding-min',
