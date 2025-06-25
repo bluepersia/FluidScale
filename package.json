@@ -2,11 +2,14 @@
   "name": "fluid-scale",
   "version": "0.0.12-alpha",
   "description": "Create beautiful fluid responsive designs easily.",
-  "main": "fluidScale.js",
+  "main": "./fluidScale.js",
   "author": {
     "name": "Marco Zimmermann",
     "email": "marcoenriquezimmermann@gmail.com",
     "url": "https://github.com/bluepersia"
+  },
+  "exports": {
+    ".": "./fluidScale.js"
   },
   "bugs": {
     "url": "https://github.com/bluepersia/FluidScale/issues"
