@@ -32,7 +32,6 @@ export default async function loadConfig() {
 const {
   inputs,
   outputDir,
-  outputRoot,
   breakpoints,
   minBreakpoint,
   maxBreakpoint,
@@ -123,7 +122,7 @@ async function generateFluidRulesJSON() {
       sheet.cssRules.CSSRule = dom.window.CSSRule;
       parseRules(sheet.cssRules, 0);
     }
-    const outPath = path.join(outputRoot, outputDir, `${key}.json`);
+    const outPath = path.join('public', outputDir, `${key}.json`);
     await fs.promises.mkdir (path.dirname(outPath), { recursive:true});
     await fs.promises.writeFile(
       outPath,

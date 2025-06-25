@@ -40,7 +40,7 @@ There are two approaches to optimize the final build.
 
 ### 📦 Approach 1: JSON Builder (recommended)
 
-Set up `fluid-scale.config.js`.
+Set up `fluid-scale.config.js` and store it in `public`.
 
 Configure it, e.g.:
 
@@ -50,12 +50,9 @@ export default {
     'homepage:' ['src/homepage/**/*.html'],
     'about-us': ['src/about-us/**/*.html'],
   },
-  outputRoot: 'public',
-  outputDir: 'fluid-scale', //Subfolder to store the JSON files in root
+  outputDir: 'fluid-scale', //Subfolder inside `public`.
 };
 ```
-
-Store the config in the root. Both config and files must be accessible via `/` at runtime.
 
 You can also specify CSS files directly.
 
