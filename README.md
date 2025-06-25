@@ -1,6 +1,6 @@
 ![Tool Logo](https://github.com/bluepersia/FluidScale/raw/master/assets/logo.jpg)
 
-**This tool has been tested with small tests. The next step is to apply it to realistic projects.**
+**This tool has been tested with small tests. It's now being tested on multi-page websites.**
 **Vite/Webpack will be supported, but currently untested.**
 **Thanks for your patience**
 
