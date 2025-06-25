@@ -782,13 +782,13 @@ export { fluidScale };
 export { FluidScale };
 
 let jsonLoaded;
-
+const configPath = new URL('./fluid-scale.config.js', import.meta.url).toString();
 export async function loadJSON(path) {
   const originalPath = path;
 
   let config;
   try {
-    config = (await import('/fluid-scale.config.js')).default;
+    config = (await import(configPath)).default;
 
     if (config)
       path = `${
