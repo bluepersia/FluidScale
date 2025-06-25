@@ -1,7 +1,6 @@
 ![Tool Logo](https://github.com/bluepersia/FluidScale/raw/master/assets/logo.jpg)
 
 **This tool has been tested with small tests. It's now being tested on realistic patterns.**
-**Vite/Webpack will be supported, but currently untested.**
 **Thanks for your patience**
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
