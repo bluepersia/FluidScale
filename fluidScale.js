@@ -75,6 +75,7 @@ const noMin = [
 
 let breakpoints;
 let autoBreakpoints;
+let baseBreakpoint = null;
 let minBreakpoint;
 let maxBreakpoint;
 let usingPartials = true;
@@ -509,9 +510,11 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       .sort((a, b) => a.width - b.width);
 
     if (autoBreakpoints) {
-      if (mediaBps.length <= 1) return;
+      if (mediaBps.length <= 1 && !baseBreakpoint) return;
       breakpoints = mediaBps.map((mediaBp) => mediaBp.width);
     }
+    if(baseBreakpoint)
+      breakpoints.unshift (baseBreakpoint);
 
     parseNextValues(
       [...rules].filter((rule) => rule.type === CSSRuleRef.STYLE_RULE)
@@ -841,6 +844,7 @@ function waitForJSON(path, checkInterval = 100) {
 
 export function nodeInit({
   bps = 'auto',
+  baseBreakpoint : baseBp = null,
   minBp,
   maxBp,
   usingPartials: usingPs = true,
@@ -850,6 +854,7 @@ export function nodeInit({
   enableComments: customCmm = false,
 }) {
   breakpoints = bps;
+  baseBreakpoint = baseBp;
   minBreakpoint = minBp;
   maxBreakpoint = maxBp;
   usingPartials = usingPs;
@@ -864,6 +869,7 @@ export default async function init({
   autoObserve = true,
   root = autoObserve ? document.body : null,
   breakpoints: bps = 'auto',
+  baseBreakpoint : baseBp, 
   minBreakpoint: minBp,
   maxBreakpoint: maxBp,
   usingPartials: usingPs,
@@ -875,6 +881,7 @@ export default async function init({
   enableComments: customCmm,
 } = {}) {
   autoBreakpoints = bps === 'auto';
+  baseBreakpoint = baseBp;
   breakpoints = autoBreakpoints ? null : bps;
   minBreakpoint = minBp;
   maxBreakpoint = maxBp;
