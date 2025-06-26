@@ -119,7 +119,6 @@ class FluidScale {
     let wasParsed = stylesParsed;
 
     if (!stylesParsed && (!json || jsonLoaded !==  json)) {
- 
       // run once on load
       for (const sheet of checkUsage
         ? Array.from(document.styleSheets).filter((sheet) => {
@@ -482,6 +481,7 @@ function parseNextValues(rules) {
 
 let mediaBps;
 function parseRules(rules, bpIndex = 0, bp = 0) {
+  
   const CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule : rules.CSSRule;
 
   if (bpIndex == 0) {
@@ -509,7 +509,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       .sort((a, b) => a.width - b.width);
 
     if (autoBreakpoints) {
-      if (mediaBps.length <= 2) return;
+      if (mediaBps.length <= 1) return;
       breakpoints = mediaBps.map((mediaBp) => mediaBp.width);
     }
 
@@ -711,6 +711,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
     }
   }
   if (bpIndex === 0) {
+    
     for (const [index, { cssRules, width }] of mediaBps.entries()) {
       if (autoBreakpoints && index === 0) continue;
       cssRules.CSSRule = rules.CSSRule;
@@ -794,7 +795,7 @@ export async function loadJSON(path) {
   
   let config;
   try {
-    config = (await import('/fluid-scale.config.js')).default;
+    config = (await import(`/fluid-scale.config.js?t=${Date.now()}`)).default;
 
     if (config)
       path = `/${config.outputDir}/${path}`;
