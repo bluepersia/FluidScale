@@ -510,8 +510,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       .sort((a, b) => a.width - b.width);
 
     if (autoBreakpoints) {
-      if (mediaBps.length <= 1 && !baseBreakpoint) return;
       breakpoints = mediaBps.map((mediaBp) => mediaBp.width);
+      if (mediaBps.length <= 1 && !baseBreakpoint) return;
     }
     if(baseBreakpoint)
       breakpoints.unshift (baseBreakpoint);
