@@ -3,6 +3,7 @@
   "version": "0.0.164-alpha",
   "description": "Create beautiful fluid responsive designs easily.",
   "main": "./fluidScale.js",
+  "types": "fluidScale.d.ts",
   "author": {
     "name": "Marco Zimmermann",
     "email": "marcoenriquezimmermann@gmail.com",
