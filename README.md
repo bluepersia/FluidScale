@@ -5,6 +5,9 @@
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
+_Note: When using shorthand (e.g., padding or margin), keep the same number of values and use the same group across breakpoints.
+For example, don’t switch from padding: 3rem 3rem; to padding: 5rem 3rem 5rem;. This isn't supported yet — support coming soon._
+
 Write:
 
 ```css
