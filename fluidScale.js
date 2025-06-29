@@ -121,7 +121,7 @@ class FluidScale {
 
     if (!stylesParsed && (!json || jsonLoaded !==  json)) {
       // run once on load
-      for (const sheet of checkUsage
+      let sheets = checkUsage
         ? Array.from(document.styleSheets).filter((sheet) => {
             try {
               const ownerNode = sheet.ownerNode;
@@ -137,15 +137,20 @@ class FluidScale {
               return false;
             }
           })
-        : document.styleSheets) {
-        let rules;
-        try {
-          rules = sheet.cssRules;
-        } catch {
-          continue;
-        }
-        parseRules(rules, 0);
-      }
+        : document.styleSheets;
+
+        sheets = Array.from (sheets).filter (sheet => {
+          try {
+            sheet.cssRules;
+            return true;
+          }
+          catch(e) {
+            
+            return false;
+          }
+        })
+        parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
+
       stylesParsed = true;
     }
 
@@ -483,9 +488,10 @@ function parseNextValues(rules) {
 let mediaBps;
 function parseRules(rules, bpIndex = 0, bp = 0) {
   
-  const CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule : rules.CSSRule;
-
+  const CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule :  Object.getPrototypeOf(Object.getPrototypeOf(rules[0])).constructor
+  
   if (bpIndex == 0) {
+    
     mediaBps = [...rules]
       .filter(
         (rule) =>
@@ -510,7 +516,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       .sort((a, b) => a.width - b.width);
 
     if (autoBreakpoints) {
-      breakpoints = mediaBps.map((mediaBp) => mediaBp.width);
+      breakpoints = Array.from (new Set (mediaBps.map((mediaBp) => mediaBp.width)));
+      
       if (mediaBps.length <= 1 && !baseBreakpoint) return;
     }
     if(baseBreakpoint)
@@ -572,7 +579,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         let value;
 
         if (bps && !minimizedMode) {
-          const lastBp = [...bps.values()].at(-1);
+          const arr = [...bps.values()]
+          const lastBp = arr[arr.length - 1];
           if (lastBp) {
             const variableObj = lastBp[variableName];
             if (variableObj) value = variableObj.maxValues.join(' ');
@@ -580,8 +588,10 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         }
 
         if (!value && !minimizedMode)
-          value = prevValues[rule.selectorText]?.[variableName]?.at(-1) || null;
-
+        {
+          const arr = prevValues[rule.selectorText]?.[variableName];
+          value = arr ? arr[arr.length -1] : null;
+        }
         if (!value) {
           if (rule.comments?.hasOwnProperty(variableName))
             value = rule.comments[variableName];
@@ -715,12 +725,13 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
   }
   if (bpIndex === 0) {
     
-    for (const [index, { cssRules, width }] of mediaBps.entries()) {
+    for (const { cssRules, width } of mediaBps) {
+      const index = breakpoints.indexOf (width);
       if (autoBreakpoints && index === 0) continue;
       cssRules.CSSRule = rules.CSSRule;
       parseRules(
         cssRules,
-        breakpoints ? breakpoints.indexOf(width) : -1,
+        index,//breakpoints ? index : -1,
         width
       );
     }

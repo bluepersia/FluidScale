@@ -47,7 +47,7 @@ Configure it, e.g.:
 ```js
 export default {
   inputs: {
-    'homepage:' ['src/homepage/**/*.html'],
+    'homepage:': ['src/homepage/**/*.html'],
     'about-us': ['src/about-us/**/*.html'],
   },
   outputDir: 'fluid-scale', //Subfolder inside `public`.

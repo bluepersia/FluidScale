@@ -118,10 +118,19 @@ async function generateFluidRulesJSON() {
     const dom = new JSDOM(html);
     const document = dom.window.document;
 
-    for (const sheet of document.styleSheets) {
-      sheet.cssRules.CSSRule = dom.window.CSSRule;
-      parseRules(sheet.cssRules, 0);
-    }
+    const sheets = Array.from (document.styleSheets).filter (sheet => {
+      try {
+        sheet.cssRules;
+        return true;
+      }
+      catch(e) {
+        return false;
+      }
+    })
+
+    const rules = sheets.map (sheet => Array.from (sheet.cssRules)).flat();
+    parseRules(rules, 0);
+   
     const outPath = path.join('public', outputDir, `${key}.json`);
     await fs.promises.mkdir (path.dirname(outPath), { recursive:true});
     await fs.promises.writeFile(
