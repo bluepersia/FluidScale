@@ -631,6 +631,33 @@ const clockMap = new Map ([
   }]
 ]
 )
+
+const borderMap = new Map([
+  [1, {
+    'top-left': 0,
+    'top-right': 0,
+    'bottom-right': 0,
+    'bottom-left': 0
+  }],
+  [2, {
+    'top-left': 0,
+    'bottom-right':0,
+    'top-right':1,
+    'bottom-left':1
+  }],
+  [3, {
+    'top-left': 0,
+    'top-right':1,
+    'bottom-left':1,
+    'bottom-right':2
+  }],
+  [4, {
+    'top-left': 0,
+    'top-right':1,
+    'bottom-right':2,
+    'bottom-left':3 
+  }]
+])
 function equalize (vals1, vals2, map)
 {
   if(vals2.length > vals1.length)
@@ -798,7 +825,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
               .trim();
           }
         }
-
+        
         if (!value) continue;
 
         let gridTemplateVarName;
@@ -831,6 +858,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         let maxValues;
         let isCombo = false;
         if (autoApply || fluidPropertyName.includes('-min')) {
+       
           minValues = value.split(' ');
           let maxVal;
           if (autoApply && minimizedMode) {
@@ -880,13 +908,21 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             if (!maxVal) continue;
           }
 
-          maxValues = maxVal.split(' ');
-          
+          maxValues = maxVal.split(' ');       
           if (maxValues.length !== minValues.length)
           {
+            
             if (clockSymmetry.includes (variableName))
             {
               const eq = equalize (minValues, maxValues, clockMap);
+              minValues = eq[0];
+              maxValues = eq[1];
+            } else if (variableName === 'border-radius')
+            {
+              if(minValues.includes('/'))
+                continue;
+              
+              const eq = equalize (minValues, maxValues, borderMap);
               minValues = eq[0];
               maxValues = eq[1];
             }

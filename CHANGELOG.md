@@ -1,6 +1,12 @@
 # Changelog
 
-## [.0.1653-alpha] - 2025-06-29
+## [0.0.1654-alpha]- 2025-06-29
+
+### Added
+
+1. Multi-values support for border-radius
+
+## [0.0.1653-alpha] - 2025-06-29
 
 ### Added
 
