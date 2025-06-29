@@ -1041,7 +1041,7 @@ export async function loadJSON(path) {
   
   let config;
   try {
-    config = (await import(`/fluid-scale.config.js?t=${Date.now()}`)).default;
+    config = (await import('/fluid-scale.config.js')).default;
 
     if (config)
       path = `/${config.outputDir}/${path}`;
