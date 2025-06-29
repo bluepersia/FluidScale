@@ -29,6 +29,11 @@ const fluidPropertyNames = [
   'grid-auto',
   'grid-auto-fit',
   'grid-auto-fill',
+  'grid-template-columns',
+  'grid-template-rows',
+  'grid-auto-rows',
+  'grid-auto-fit-rows',
+  'grid-auto-fill-rows',
   'width',
   'height',
   'font-size',
@@ -49,6 +54,7 @@ const fluidPropertyNames = [
   'bottom',
   'left',
   'right',
+  'flex-basis'
 ];
 const fluidPropertySync = {
   columns: 'grid-template-columns',
@@ -71,6 +77,10 @@ const noMin = [
   'margin-right',
   'margin-top',
   'gap',
+  'grid-template-rows',
+  'grid-auto-rows',
+  'grid-auto-fit-rows',
+  'grid-auto-fill-rows',
 ];
 
 let breakpoints;
@@ -350,6 +360,15 @@ class FluidProperty {
 
     if (name === 'line-height') this.noUnit = true;
 
+    if(name.startsWith ('--grid'))
+    {
+      this.customTransition = {
+        startTime: performance.now (),
+        time: autoTransition?.time || 300,
+        easing: autoTransition?.easing || 'ease',
+        delay: autoTransition?.delay || 0
+      }
+    }
     for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
   }
 
@@ -396,21 +415,73 @@ class FluidProperty {
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
-    return breakpointValues.minValues.map((val, index) => {
-      if (this.noMin)
-        return `${val + breakpointValues.rangeValues[index] * progress}${
-          breakpointValues.unitValues[index]
-        }`;
+    let values;
+    
+    if(progress >= 1)
+      values = breakpointValues.maxValues;
+    else 
+      values = breakpointValues.minValues.map((val, index) => val + breakpointValues.rangeValues[index] * progress );
+    
 
-      return `min(${val + breakpointValues.rangeValues[index] * progress}${
+    if (this.customTransition)
+    {
+      if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
+      {
+        this.customTransition.startValues = this.lastValues || getComputedStyle (this.el).getPropertyValue(this.name).split(' ').map (strValue => Number(strValue.match(/[\d.]+/)))
+      
+        this.customTransition.targetValues = values;
+        this.customTransition.startTime = performance.now ();
+        
+        if(this.customTransition.engine)
+          clearInterval (this.customTransition.engine);
+        
+        setTimeout (()=> {
+          this.customTransition.engine = setInterval(() => { 
+            this.update (breakpointIndex, currentWidth)
+          }, 16);
+      }, this.customTransition.delay);
+      }
+      else 
+      {
+        const time = performance.now () - this.customTransition.startTime;
+        let progress = time / this.customTransition.time;
+        progress = applyEasing (this.customTransition.easing, progress);
+        if(progress >= 1) {
+          progress = 1;
+          clearInterval (this.customTransition.engine);
+          this.customTransition.engine = null;
+        }
+        
+        
+        values = values.map ((val, index) => {
+          const startValue = this.customTransition.startValues[index];
+          const range = val - startValue;
+          const curr = startValue + (range * progress);
+          return curr;
+        })
+        
+      }
+    }
+    
+    this.lastValues = values;
+    values = values.map((val, index) => {
+      return `${val}${
         breakpointValues.unitValues[index]
-      }, 100%)`;
+      }`;
+  });
+
+    if(!this.noMin)
+     values = values.map((val) => {
+      return `min(${val}, 100%)`;
     });
+
+   
+    return values;
   }
 
   static Parse(el, name, valuesByBreakpoint, breakpoints, autoTransition) {
     const instanceName = name.replace('-min', '');
-    if (autoTransition) {
+    if (autoTransition && !name.startsWith ('--grid')) {
       if (!el.variables) el.variables = [];
 
       el.variables.push(name);
@@ -420,10 +491,11 @@ class FluidProperty {
         el,
         instanceName,
         valuesByBreakpoint,
-        breakpoints
+        breakpoints,
+        autoTransition
       );
     } else {
-      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints);
+      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, autoTransition);
     }
   }
 
@@ -440,12 +512,12 @@ class FluidProperty {
       if (this.name === 'grid-auto' || this.name === 'grid-auto-fit')
         this.el.style.setProperty(
           'grid-template-columns',
-          `repeat(auto-fit, ${strValue})`
+          `repeat(auto-fit, minmax(0, ${strValue}))`
         );
       else if (this.name === 'grid-auto-fill')
         this.el.style.setProperty(
           'grid-template-columns',
-          `repeat(auto-fill, ${strValue})`
+          `repeat(auto-fill, minmax(0, ${strValue}))`
         );
       else this.el.style.setProperty(propertyName, strValue);
 
@@ -467,6 +539,28 @@ class FluidPropertyCombo extends FluidProperty {
   }
 }
 
+
+function applyEasing (easing, t)
+{
+  if (easing === 'ease')
+    return t < 0.5
+    ? (4 * t * t * t)
+    : ((t - 1) * (2 * t - 2) * (2 * t - 2) + 1);
+
+  if (easing === 'ease-in')
+    return t * t;
+
+  if(easing === 'ease-out')
+    return t * (2 - t);
+
+  if (easing === 'ease-in-out')
+    return t < 0.5
+    ? 2 * t * t
+    : -1 + (4 - 2 * t) * t;
+
+  return t;
+}
+
 // before FluidScale …
 let fluidVariableSelectors = {};
 let stylesParsed = false;
@@ -485,11 +579,110 @@ function parseNextValues(rules) {
   }
 }
 
+function findCSSRuleConstructor(rules) {
+  for (const rule of rules) {
+    const proto = Object.getPrototypeOf(Object.getPrototypeOf(rule));
+    if (proto && proto.constructor && proto.constructor.name === 'CSSRule') {
+      return proto.constructor;
+    }
+    // Recursively search inside group rules like @media
+    if ('cssRules' in rule) {
+      const found = findCSSRuleConstructor(rule.cssRules);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+const clockSymmetry = [
+  'margin',
+  'padding',
+  'border-width',
+  'border-style',
+  'border-color',
+  'inset',
+  'scroll-padding',
+  'scroll-margin',
+]
+const clockMap = new Map ([
+  [1, {
+    'top': 0,
+    'left': 0,
+    'right': 0,
+    'bottom': 0
+  }],
+  [2, {
+    'top': 0,
+    'bottom': 0,
+    'left': 1,
+    'right': 1
+  }],
+  [3,{
+    'top': 0,
+    'left': 1,
+    'right': 1,
+    'bottom': 2
+  }],
+  [4, {
+    'top': 0,
+    'right': 1,
+    'bottom': 2,
+    'left': 3
+  }]
+]
+)
+function equalize (vals1, vals2, map)
+{
+  if(vals2.length > vals1.length)
+    return [stretch (vals1, vals2, map), vals2];
+  else 
+    return [vals1, stretch (vals2, vals1, map)]
+}
+
+function stretch (smaller, larger, map)
+{
+  const stretched = new Array(larger.length);
+
+  const smallMap = map.get (smaller.length);
+  for(const [pos, index] of Object.entries (map.get (larger.length)))
+  {
+    const smallIndex = smallMap[pos];
+
+    stretched[index] = smaller[smallIndex];
+  }
+
+  return stretched;
+}
+
+function parseGridTemplateColumns(value) {
+  const match = value.match(/^repeat\(\s*(auto-fit|auto-fill)\s*,\s*([^)]+)\s*\)$/);
+  if (match) {
+    return match[2].trim();
+  }
+  return null; // Not a match
+}
+
+function parseRepeat(value) {
+  if(!value.includes ('repeat'))
+    return value;
+  const match = value.match(/^repeat\(\s*(\d+)\s*,\s*([^)]+)\s*\)$/);
+  if (!match) return null;
+
+  const count = parseInt(match[1], 10);
+  const unit = match[2].trim();
+
+  return Array(count).fill(unit).join(' ');
+}
+
+
+let CSSRuleRef;
 let mediaBps;
 function parseRules(rules, bpIndex = 0, bp = 0) {
   
-  const CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule :  Object.getPrototypeOf(Object.getPrototypeOf(rules[0])).constructor
+  if(!CSSRuleRef)
+    CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule :  findCSSRuleConstructor (rules);
   
+
   if (bpIndex == 0) {
     
     mediaBps = [...rules]
@@ -517,7 +710,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
     if (autoBreakpoints) {
       breakpoints = Array.from (new Set (mediaBps.map((mediaBp) => mediaBp.width)));
-      
+     
       if (mediaBps.length <= 1 && !baseBreakpoint) return;
     }
     if(baseBreakpoint)
@@ -536,6 +729,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
   }
 
   for (const rule of rules) {
+    
     if (rule.type === CSSRuleRef.STYLE_RULE) {
       function processComments(rule) {
         if (!enableComments || rule.comments) return;
@@ -572,10 +766,11 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       let bps = fluidVariableSelectors[rule.selectorText];
 
       for (const fluidPropertyName of fluidPropertyNames) {
-        let variableName = autoApply
+        let variableName =  autoApply
           ? fluidPropertyName.replace('-min', '')
           : `${fluidPropertyName}`;
 
+          
         let value;
 
         if (bps && !minimizedMode) {
@@ -598,13 +793,26 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           else {
             value = rule.style
               .getPropertyValue(
-                autoApply ? variableName : `--fluid-${variableName}`
+                autoApply && !variableName.startsWith('grid-auto') ? variableName : `--fluid-${variableName}`
               )
               .trim();
           }
         }
 
         if (!value) continue;
+
+        let gridTemplateVarName;
+        if (value.includes ('auto-') && !value.includes ('--grid-auto'))
+        {
+          gridTemplateVarName = `--${value.includes('-fit') ? 'grid-auto-fit' : 'grid-auto-fill'}`
+          if(variableName.includes ('rows'))
+            gridTemplateVarName += '-rows';
+          value = parseGridTemplateColumns (value);
+        }
+        else 
+        {
+          value = parseRepeat (value);
+        }
 
         if (!minimizedMode) {
           if (!prevValues[rule.selectorText])
@@ -648,6 +856,15 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
                 maxVal =
                   futureRule.comments?.[variableName] ||
                   futureRule.style.getPropertyValue(variableName).trim();
+
+                if (gridTemplateVarName)
+                {
+                  maxVal = parseGridTemplateColumns (maxVal);
+                  variableName = gridTemplateVarName;
+                }
+                else 
+                  maxVal = parseRepeat (maxVal);
+                 
                 nextBp = width;
                 nextBpIndex = breakpoints.indexOf(width);
                 break;
@@ -666,8 +883,14 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           maxValues = maxVal.split(' ');
           
           if (maxValues.length !== minValues.length)
-            continue;
-
+          {
+            if (clockSymmetry.includes (variableName))
+            {
+              const eq = equalize (minValues, maxValues, clockMap);
+              minValues = eq[0];
+              maxValues = eq[1];
+            }
+          }
           isCombo = true;
         } else {
           const valueArr = value.split(' ');
@@ -678,7 +901,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         if (bpIndex === 0 && autoTransition)
           transition = rule.style.getPropertyValue('transition');
 
-        const unitValues = minValues.map((val) =>
+        const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
+        const unitValues = unitsBase.map((val) =>
           fluidPropertyName === 'line-height'
             ? ''
             : val.includes('rem')
@@ -698,8 +922,12 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           Number(val.replace(unitValues[index], ''))
         );
         const rangeValues = minValues.map(
-          (minVal, index) => maxValues[index] - minVal
+          (minVal, index) => { 
+            const maxVal = maxValues[index] || maxValues[maxValues.length - 1];
+            return maxVal - minVal
+          }
         );
+
 
         if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
 
@@ -902,7 +1130,7 @@ export default async function init({
   maxBreakpoint = maxBp;
   if (typeof usingPs === 'boolean') usingPartials = usingPs;
   if (typeof autoApp === 'boolean') autoApply = autoApp;
-  if (typeof autoT === 'boolean') autoTransition = autoT;
+  if (typeof autoT === 'boolean' || autoT) autoTransition = autoT;
   if (typeof minMode === 'boolean') minimizedMode = minMode;
   if (typeof customCmm === 'boolean') enableComments = customCmm;
 
