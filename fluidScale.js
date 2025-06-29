@@ -664,6 +664,10 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
 
           maxValues = maxVal.split(' ');
+          
+          if (maxValues.length !== minValues.length)
+            continue;
+
           isCombo = true;
         } else {
           const valueArr = value.split(' ');
