@@ -974,7 +974,11 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
         );
 
-        
+        if (unitValues.some(unit => unit === null))
+        {
+          const root = unitValues.find(unit => unit !== null) || 'rem';
+          unitValues = unitValues.map ((u) => u || root);
+        }
 
         if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
 
