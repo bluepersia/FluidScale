@@ -512,13 +512,23 @@ class FluidProperty {
       if (this.name === 'grid-auto' || this.name === 'grid-auto-fit')
         this.el.style.setProperty(
           'grid-template-columns',
-          `repeat(auto-fit, minmax(0, ${strValue}))`
+          `repeat(auto-fit, ${strValue})`
         );
       else if (this.name === 'grid-auto-fill')
         this.el.style.setProperty(
           'grid-template-columns',
-          `repeat(auto-fill, minmax(0, ${strValue}))`
-        );
+          `repeat(auto-fill, ${strValue})`
+        )
+        if (this.name === 'grid-auto-rows' || this.name === 'grid-auto-fit-rows')
+          this.el.style.setProperty(
+            'grid-template-rows',
+            `repeat(auto-fit, ${strValue})`
+          );
+        else if (this.name === 'grid-auto-fill')
+          this.el.style.setProperty(
+            'grid-template-rows',
+            `repeat(auto-fill, ${strValue})`
+          )
       else this.el.style.setProperty(propertyName, strValue);
 
       return;
@@ -939,7 +949,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
         const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
         const unitValues = unitsBase.map((val) =>
-          fluidPropertyName === 'line-height'
+          val.startsWith ('0') ? null : fluidPropertyName === 'line-height'
             ? ''
             : val.includes('rem')
             ? 'rem'
@@ -949,13 +959,13 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             ? '%'
             : val.includes('px')
             ? 'px'
-            : 'rem'
+            : null
         );
         minValues = minValues.map((val, index) =>
-          Number(val.replace(unitValues[index], ''))
+          Number(val.replace(unitValues[index] || '', ''))
         );
         maxValues = maxValues.map((val, index) =>
-          Number(val.replace(unitValues[index], ''))
+          Number(val.replace(unitValues[index] || '', ''))
         );
         const rangeValues = minValues.map(
           (minVal, index) => { 
@@ -964,6 +974,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
         );
 
+        
 
         if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
 
