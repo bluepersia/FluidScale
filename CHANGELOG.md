@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.1656-alpha]- 2025-06-30
+
+### Fixed
+
+- auto-fit, auto-fill scales properly.
+
 ## [0.0.1654-alpha]- 2025-06-29
 
 ### Added

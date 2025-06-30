@@ -416,19 +416,35 @@ class FluidProperty {
     );
 
     let values;
-    
     if(progress >= 1)
       values = breakpointValues.maxValues;
     else 
-      values = breakpointValues.minValues.map((val, index) => val + breakpointValues.rangeValues[index] * progress );
+      values = breakpointValues.minValues.map((val, index) => {
+        
+        const rangeValue = breakpointValues.rangeValues[index];
+
+        if(!rangeValue)
+          return val;
+
+        
+        return val + (rangeValue * progress);
+      });
     
 
     if (this.customTransition)
     {
       if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
       {
-        this.customTransition.startValues = this.lastValues || getComputedStyle (this.el).getPropertyValue(this.name).split(' ').map (strValue => Number(strValue.match(/[\d.]+/)))
-      
+        this.customTransition.startValues = this.lastValues;
+        
+        if (!this.customTransition.startValues)
+        {
+          const prop = this.name.startsWith ('grid-auto') ? this.name.includes ('rows') ? 'grid-template-rows' : 'grid-template-columns' : this.name;
+         
+          let propVal = getComputedStyle (this.el).getPropertyValue (prop);
+
+          this.customTransition.startValues = propVal.split(' ').map (strVal => parseSingleVal(strVal));
+        }
         this.customTransition.targetValues = values;
         this.customTransition.startTime = performance.now ();
         
@@ -446,6 +462,7 @@ class FluidProperty {
         const time = performance.now () - this.customTransition.startTime;
         let progress = time / this.customTransition.time;
         progress = applyEasing (this.customTransition.easing, progress);
+        
         if(progress >= 1) {
           progress = 1;
           clearInterval (this.customTransition.engine);
@@ -455,6 +472,9 @@ class FluidProperty {
         
         values = values.map ((val, index) => {
           const startValue = this.customTransition.startValues[index];
+          if(isStrVal(startValue))
+            return progress >= 1 ? val : startValue;
+
           const range = val - startValue;
           const curr = startValue + (range * progress);
           return curr;
@@ -505,7 +525,7 @@ class FluidProperty {
 
   update(breakpointIndex, currentWidth) {
     const strValue = this.toString(breakpointIndex, currentWidth);
-
+   
     if (autoApply) {
       let propertyName = fluidPropertySync[this.name] || this.name;
 
@@ -711,6 +731,23 @@ function parseRepeat(value) {
   return Array(count).fill(unit).join(' ');
 }
 
+function isStrVal (val)
+{
+  if (val === 'auto' || val === 'min-content' || val === 'max-content' || val === 'fit-content')
+    return true;
+
+  return false;
+}
+function parseSingleVal (val, unit)
+{
+  if (isStrVal(val))
+    return val;
+
+const match = val.match(/[\d.]+/);
+const number = match ? parseFloat(match[0]) : null;
+
+return number;
+}
 
 let CSSRuleRef;
 let mediaBps;
@@ -841,7 +878,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         let gridTemplateVarName;
         if (value.includes ('auto-') && !value.includes ('--grid-auto'))
         {
-          gridTemplateVarName = `--${value.includes('-fit') ? 'grid-auto-fit' : 'grid-auto-fill'}`
+          gridTemplateVarName = `${value.includes('-fit') ? 'grid-auto-fit' : 'grid-auto-fill'}`
           if(variableName.includes ('rows'))
             gridTemplateVarName += '-rows';
           value = parseGridTemplateColumns (value);
@@ -948,7 +985,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           transition = rule.style.getPropertyValue('transition');
 
         const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
-        const unitValues = unitsBase.map((val) =>
+        let unitValues = unitsBase.map((val) =>
           val.startsWith ('0') ? null : fluidPropertyName === 'line-height'
             ? ''
             : val.includes('rem')
@@ -961,16 +998,16 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             ? 'px'
             : null
         );
-        minValues = minValues.map((val, index) =>
-          Number(val.replace(unitValues[index] || '', ''))
+        minValues = minValues.map((val) =>
+          parseSingleVal (val)
         );
-        maxValues = maxValues.map((val, index) =>
-          Number(val.replace(unitValues[index] || '', ''))
+        maxValues = maxValues.map((val) =>
+          parseSingleVal(val)
         );
         const rangeValues = minValues.map(
           (minVal, index) => { 
             const maxVal = maxValues[index] || maxValues[maxValues.length - 1];
-            return maxVal - minVal
+            return isStrVal (minVal) || isStrVal(maxVal) ? null : maxVal - minVal
           }
         );
 
