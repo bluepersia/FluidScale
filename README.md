@@ -1,16 +1,16 @@
 ![Tool Logo](https://github.com/bluepersia/FluidScale/raw/master/assets/logo.jpg)
 
-**This tool has been tested with small tests. It's now being tested on realistic patterns.**
-**Thanks for your patience**
+Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
-Latest update:
+**Latest update**:
 
 1. Grid support
 2. Multi-values support (2rem 2rem -> 3rem 2rem 4rem)
 3. Multiple stylesheets bug fix
 4. Base breakpoint option (instead of media query in CSS)
 
-Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
+**This tool has been tested with small tests. It's now being tested on realistic patterns.**
+**Thanks for your patience**
 
 Write:
 
