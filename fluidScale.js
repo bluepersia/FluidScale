@@ -1073,13 +1073,14 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           const prevValuesForVar = prevValuesForRule[variableName];
           prevValuesForVar.push(value);
         }
+        const allCalcsParsed = parseAllCalcs (value);
 
         let minValues;
         let maxValues;
         let isCombo = false;
         if (autoApply || fluidPropertyName.includes('-min')) {
        
-          minValues = value.split(' ');
+          minValues = allCalcsParsed;
           let maxVal;
           if (autoApply && minimizedMode) {
             // Search future breakpoints for the same selector and variable
@@ -1128,7 +1129,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             if (!maxVal) continue;
           }
 
-          maxValues = maxVal.split(' ');       
+          maxValues = parseAllCalcs (maxVal);   
           if (maxValues.length !== minValues.length)
           {
             
