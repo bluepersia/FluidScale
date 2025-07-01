@@ -171,7 +171,8 @@ class FluidScale {
     this.autoTransition = autoTransition;
     this.elVariables = {};
     this.updateBound = this.update.bind(this);
-    window.addEventListener('resize', this.updateBound);
+    this.onResizeBound = this.onResize.bind(this);
+    window.addEventListener('resize', this.onResizeBound);
     rootFontSizeChanged.push (this.updateBound);
 
     if (!json && (this.breakpoints !== breakpoints || wasParsed)) {
@@ -307,10 +308,29 @@ class FluidScale {
     );
   }
 
+  updateDebounceCb = null
+  onResize ()
+  {
+    if (!this.updateDebounceCb)
+    {
+      this.updateDebounceCb = () =>
+      {
+        this.update ();
+        this.updateDebounceCb = null
+      }
+
+      setTimeout (this.updateDebounceCb, 16.66);
+
+      this.update ();
+    }
+  }
+
   computedStyleCache = new Map();
   boundClientRectCache = new Map();
 
   update() {
+    const time = performance.now ();
+
     let currentWidth =
       window.innerWidth < this.minBreakpoint
         ? this.minBreakpoint
@@ -347,18 +367,20 @@ class FluidScale {
 
     this.computedStyleCache.clear();
     this.boundClientRectCache.clear ();
+
+    console.log (performance.now () - time);
   }
 
   destroy() {
-    window.removeEventListener('resize', this.updateBound);
+    window.removeEventListener('resize', this.onResizeBound);
     rootFontSizeChanged.splice (rootFontSizeChanged.findIndex (this.updateBound), 1);
     this.observer?.disconnect();
   }
 }
 
 class FluidProperty {
-  noMin = false;
-  noUnit = false;
+  //noMin = false;
+  //noUnit = false;
   breakpoints = [];
   constructor(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, boundClientRectCache) {
     this.el = el;
@@ -372,7 +394,7 @@ class FluidProperty {
 
     
 
-    if (name === 'line-height') this.noUnit = true;
+    //if (name === 'line-height') this.noUnit = true;
 
     if(name.startsWith ('--grid'))
     {
@@ -383,7 +405,7 @@ class FluidProperty {
         delay: autoTransition?.delay || 0
       }
     }
-    for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
+    //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
   }
 /*
   getValUnit(val) {
@@ -398,12 +420,11 @@ class FluidProperty {
       : val.includes('px')
       ? 'px'
       : 'rem';
-  }*/
+  }
 
   valToNumber(val) {
     return Number(val.replace('rem', '').replace('em', '').replace('%', ''));
-  }
-
+  }*/
   getValues(breakpointIndex, currentWidth) {
     if (breakpointIndex >= this.breakpoints.length - 1)
       breakpointIndex = this.breakpoints.length - 2;
@@ -430,21 +451,23 @@ class FluidProperty {
     );
 
     let values;
+
     if(progress >= 1)
-      values = breakpointValues.maxValues;
+      values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.boundClientRectCache))
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
-        const rangeValue = breakpointValues.rangeValues[index];
+      
+        const maxVal = computeVal (breakpointValues.maxValues[index], breakpointValues.maxUnits[index], this.name, this.el, this.boundClientRectCache);
+        const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.boundClientRectCache);
 
-        if(!rangeValue)
-          return val;
+       
+        const rangeValue = maxVal - minVal;
 
         
-        return val + (rangeValue * progress);
+        return minVal + (rangeValue * progress);
       });
-    
-
+   
     if (this.customTransition)
     {
       if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
@@ -457,7 +480,7 @@ class FluidProperty {
          
           let propVal = getCachedComputedStyle (this.el, this.computedStyleCache).getPropertyValue (prop);
 
-          this.customTransition.startValues = propVal.split(' ').map (strVal => parseSingleVal(strVal));
+          this.customTransition.startValues = propVal.split(' ').map (strVal => convertToPx(parseSingleVal(strVal), extractUnit(strVal, this.name), this.name, this.el, this.boundClientRectCache));
         }
         this.customTransition.targetValues = values;
         this.customTransition.startTime = performance.now ();
@@ -499,15 +522,14 @@ class FluidProperty {
     
     this.lastValues = values;
     values = values.map((val, index) => {
-      return `${val}${
-        breakpointValues.unitValues[index]
-      }`;
+      return `${val}px`;
   });
 
+  /*
     if(!this.noMin)
      values = values.map((val) => {
       return `min(${val}, 100%)`;
-    });
+    });*/
 
    
     return values;
@@ -640,6 +662,81 @@ function getCharUnit(el, unit = 'ch') {
   return unit === 'ch' ? rect.width : rect.height;
 }
 
+function isArithemtic (v)
+{
+  return v === '+' || v === '-' || v === '/' || v === '*';
+}
+
+function computeVal (val, units, property, el, boundClientRectCache)
+{
+  
+  if(Array.isArray (val))
+  {
+    return computeCalc(val[0], val[1], units[1], property, el, boundClientRectCache);
+  }
+  return convertToPx (val, units, property, el, boundClientRectCache);
+}
+
+function computeCalc (type, arr, units, property, el, boundClientRectCache)
+{
+  const pxValues = arr.map ((v, index) => isArithemtic (v) ? v : convertToPx(v, units[index], property, el, boundClientRectCache));
+
+  switch(type)
+  {
+    case "min":
+      return Math.min (...pxValues);
+    case "max":
+      return Math.max (...pxValues);
+    case "clamp": 
+      const [minVal, fluidVal, maxVal] = pxValues;
+      return Math.min(Math.max(fluidVal, minVal), maxVal);
+    case "calc":
+      return Math.eval (pxValues.join(' '));
+    case "minmax":
+      const style = getCachedComputedStyle (el);
+      switch(property)
+      {
+        case "grid-auto-fit":
+        case "grid-auto-fill": {
+          const gap = style.columnGap || style.gap || 0;
+          const gapProperty = style.columnGap ? 'column-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
+          return computeAutoFitGrid (getCachedBoundingClientRect(el).width, pxValues[0], pxValues[1], convertToPx (gapVal, gapUnit, gapProperty, el, boundClientRectCache))
+        }
+        case "grid-auto-fit-rows":
+        case "grid-auto-fill-rows": {
+          const gap = style.rowap || style.gap || 0;
+          const gapProperty = style.rowGap ? 'row-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
+          return computeAutoFitGrid (getCachedBoundingClientRect(el).height, pxValues[0], pxValues[1], convertToPx (gapVal, gapUnit, gapProperty, el, boundClientRectCache))
+        }
+      }
+
+      return Math.max(pxValues[0], pxValues[1]);
+  }
+}
+
+function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0) {
+  const totalGap = (n) => (n - 1) * gap;
+
+  // Try to fit as many tracks of `minTrackSize` as possible
+  let numTracks = Math.floor((containerWidth + gap) / (minTrackSize + gap));
+
+  // Edge case: make sure we have at least one track
+  numTracks = Math.max(1, numTracks);
+
+  // Calculate available space per track
+  const spaceForTracks = containerWidth - totalGap(numTracks);
+  const trackSize = Math.min(maxTrackSize, Math.max(minTrackSize, spaceForTracks / numTracks));
+
+  return {
+    numTracks,
+    trackSize
+  };
+}
+
 function convertToPx (val, unit, property, el, boundClientRectCache)
 {
   switch(unit)
@@ -653,7 +750,7 @@ function convertToPx (val, unit, property, el, boundClientRectCache)
       const targetFontSize = getCachedComputedStyle (targetEl).fontSize;
 
       const targetVal = parseSingleVal (targetFontSize);
-      const targetUnit = extractUnit (targetFontSize);
+      const targetUnit = extractUnit (targetFontSize, 'font-size');
 
       return convertToPx(targetVal, targetUnit, 'font-size', targetEl) * val;
     case "%":
@@ -688,6 +785,30 @@ function convertToPx (val, unit, property, el, boundClientRectCache)
     case 'ch':
     case 'ex':
       return val * getCharUnit(el, unit);
+
+      case "lh": 
+        const style = getCachedComputedStyle(el);
+        const lineHeight = style.lineHeight;
+  
+        if (lineHeight === "normal") {
+          const fontSize = style.fontSize;
+          const fsVal = parseSingleVal(fontSize);
+          const fsUnit = extractUnit(fontSize, 'font-size');
+          const fontSizePx = convertToPx(fsVal, fsUnit, 'font-size', el);
+          return fontSizePx * 1.2 * val;
+        }
+  
+        if (!/[a-z%]/i.test(lineHeight)) {
+          const fontSize = style.fontSize;
+          const fsVal = parseSingleVal(fontSize);
+          const fsUnit = extractUnit(fontSize, 'font-size');
+          const fontSizePx = convertToPx(fsVal, fsUnit, 'font-size', el);
+          return fontSizePx * parseFloat(lineHeight) * val;
+        }
+  
+        const lhVal = parseSingleVal(lineHeight);
+        const lhUnit = extractUnit(lineHeight, 'line-height');
+        return convertToPx(lhVal, lhUnit, 'line-height', el) * val;
         
   }
 }
@@ -746,50 +867,114 @@ function findCSSRuleConstructor(rules) {
   return null;
 }
 
+const calcFuncs = ['min', 'max', 'clamp', 'minmax', 'calc'];
 
-function parseCalc(value, type)
+function tryParseCalcs (val)
 {
-  const regexp = new RegExp(`^${type}\(\s*([^,]+)\s*,\s*([^)]+)\s*\)$`)
-  const match = value.match(regexp);
-  if (match) {
-    return [type, match.slice (1).map (v => v.trim())];
+  for(const calcFunc of calcFuncs)
+    {
+      const result = parseCalc (val, calcFunc);
+
+      if(result[0])
+      {
+        return result;
+      }
+    }
+
+    return val;
+
+}
+
+function parseCalc(value, type) {
+  const prefix = `${type}(`;
+  if (!value.startsWith(prefix) || !value.endsWith(')')) return [null, value];
+
+  const inner = value.slice(prefix.length, -1).trim();
+
+  if (type === "calc") {
+    // Split into tokens: operands and operators
+    const tokens = [];
+    let depth = 0;
+    let current = "";
+
+    for (let i = 0; i < inner.length; i++) {
+      const char = inner[i];
+
+      if (char === "(") {
+        depth++;
+        current += char;
+      } else if (char === ")") {
+        depth--;
+        current += char;
+      } else if ("+-*/".includes(char) && depth === 0) {
+        if (current.trim()) tokens.push(tryParseCalcs(current.trim()));
+        tokens.push(char);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+    if (current.trim()) tokens.push(tryParseCalcs(current.trim()));
+    return [type, tokens];
   }
 
-  return [null, value];
+  const args = [];
+  let depth = 0;
+  let current = '';
+
+  for (let i = 0; i < inner.length; i++) {
+    const char = inner[i];
+
+    if (char === '(') {
+      depth++;
+      current += char;
+    } else if (char === ')') {
+      depth--;
+      current += char;
+    } else if (char === ',' && depth === 0) {
+      args.push(tryParseCalcs (current.trim()));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  if (current) args.push(tryParseCalcs (current.trim()));
+
+  return [type, args];
 }
 
 
-function parseAllCalcs (value)
-{
-  return value.replaceAll(', ', '_SEP_').split(' ').map(val => {
-    val = val.replaceAll('_SEP_', ', ');
-    const minMax  = parseCalc (val, 'minmax');
+function parseAllCalcs(value) {
+  const parts = [];
+  let current = '';
+  let depth = 0;
 
-    if(minMax[0])
-      return minMax;
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
 
-    const max = parseCalc(val, 'max');
+    if (char === '(') {
+      depth++;
+      current += char;
+    } else if (char === ')') {
+      depth--;
+      current += char;
+    } else if (char === ' ' && depth === 0) {
+      if (current.trim()) {
+        parts.push(tryParseCalcs(current.trim()));
+      }
+      current = '';
+    } else {
+      current += char;
+    }
+  }
 
-    if(max[0])
-      return max;
+  if (current.trim()) {
+    parts.push(tryParseCalcs(current.trim()));
+  }
 
-    const min = parseCalc (val, 'min');
-
-    if(min[0])
-      return min;
-
-    const clamp = parseCalc (val, 'clamp');
-
-    if(clamp[0])
-      return clamp;
-
-    const calc = parseCalc (val, 'calc');
-
-    if(calc[0])
-      return calc;
-
-    return val;
-  })
+  return parts;
 }
 
 
@@ -905,6 +1090,13 @@ function isStrVal (val)
 {
  return (!/^[\d.]/.test (val));
 }
+function parseSingleValFull (val)
+{
+  if(Array.isArray (val))
+    return [val[0], val[1].map(v => parseSingleVal (v))];
+
+  return parseSingleVal (val);
+}
 function parseSingleVal (val)
 {
   if (isStrVal(val))
@@ -915,12 +1107,18 @@ const number = match ? parseFloat(match[0]) : null;
 
 return number;
 }
-function extractUnit(input) {
+function extractUnit(input, property) {
   const match = input.match(/[a-z%]+$/i);
-  return match ? match[0] : null;
+  return match ? match[0] : property === 'line-height' ? 'lh' : 'px';
 }
 
+function parseUnit (val, property)
+{
+  if (Array.isArray (val))
+    return ['', val[1].map(v => parseUnit (v))]
 
+  return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
+}
 
 let CSSRuleRef;
 let mediaBps;
@@ -1150,7 +1348,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
           isCombo = true;
         } else {
-          const valueArr = value.split(' ');
+          const valueArr = allCalcsParsed;
           minValues = [valueArr[0]];
           maxValues = [valueArr[1]];
         }
@@ -1158,30 +1356,31 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         if (bpIndex === 0 && autoTransition)
           transition = rule.style.getPropertyValue('transition');
 
-        const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
-        let unitValues = unitsBase.map((val) =>
-          val.startsWith ('0') ? null : fluidPropertyName === 'line-height'
-            ? ''
-            : extractUnit (val)
-        );
+        //const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
+        const minUnits = minValues.map (v => parseUnit(v, fluidPropertyName));
+        const maxUnits = maxValues.map(v => parseUnit (v, fluidPropertyName));
+        //let unitValues = unitsBase.map((val) => parseUnit (val));
+
         minValues = minValues.map((val) =>
-          parseSingleVal (val)
+          parseSingleValFull (val)
         );
         maxValues = maxValues.map((val) =>
-          parseSingleVal(val)
+          parseSingleValFull(val)
         );
+
+        /*
         const rangeValues = minValues.map(
           (minVal, index) => { 
             const maxVal = maxValues[index] || maxValues[maxValues.length - 1];
             return isStrVal (minVal) || isStrVal(maxVal) ? null : maxVal - minVal
           }
-        );
 
         if (unitValues.some(unit => unit === null))
         {
           const root = unitValues.find(unit => unit !== null) || 'rem';
           unitValues = unitValues.map ((u) => u || root);
         }
+        );*/
         if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
 
         let bpMap;
@@ -1194,8 +1393,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           selector: rule.selectorText,
           minValues,
           maxValues,
-          rangeValues,
-          unitValues,
+          minUnits,
+          maxUnits,
           variableName,
         });
 
