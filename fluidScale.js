@@ -172,6 +172,7 @@ class FluidScale {
     this.elVariables = {};
     this.updateBound = this.update.bind(this);
     window.addEventListener('resize', this.updateBound);
+    rootFontSizeChanged.push (this.updateBound);
 
     if (!json && (this.breakpoints !== breakpoints || wasParsed)) {
       if (!usingPartials)
@@ -228,7 +229,8 @@ class FluidScale {
               variableName,
               arr,
               breakpoints,
-              this.autoTransition
+              this.autoTransition,
+              this.computedStyleCache
             );
 
             this.fluidProperties.push(fluidProperty);
@@ -261,7 +263,8 @@ class FluidScale {
                   variableName,
                   arr,
                   this.breakpoints,
-                  this.autoTransition
+                  this.autoTransition,
+                  this.computedStyleCache
                 );
                 this.fluidProperties.push(fluidProperty);
 
@@ -304,6 +307,9 @@ class FluidScale {
     );
   }
 
+  computedStyleCache = new Map();
+  boundClientRectCache = new Map();
+
   update() {
     let currentWidth =
       window.innerWidth < this.minBreakpoint
@@ -338,10 +344,14 @@ class FluidScale {
       fp.update(currentBpIndex, currentWidth);
       return true;
     });
+
+    this.computedStyleCache.clear();
+    this.boundClientRectCache.clear ();
   }
 
   destroy() {
     window.removeEventListener('resize', this.updateBound);
+    rootFontSizeChanged.splice (rootFontSizeChanged.findIndex (this.updateBound), 1);
     this.observer?.disconnect();
   }
 }
@@ -350,13 +360,17 @@ class FluidProperty {
   noMin = false;
   noUnit = false;
   breakpoints = [];
-  constructor(el, name, valuesByBreakpoint, breakpoints) {
+  constructor(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, boundClientRectCache) {
     this.el = el;
     this.name = name;
     this.valuesByBreakpoint = breakpoints.map((bp, index) =>
       valuesByBreakpoint.find((vbbp) => vbbp?.bpIndex === index)
     );
     this.breakpoints = breakpoints;
+    this.computedStyleCache = computedStyleCache;
+    this.boundClientRectCache = boundClientRectCache;
+
+    
 
     if (name === 'line-height') this.noUnit = true;
 
@@ -371,7 +385,7 @@ class FluidProperty {
     }
     for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
   }
-
+/*
   getValUnit(val) {
     return this.noUnit
       ? ''
@@ -384,7 +398,7 @@ class FluidProperty {
       : val.includes('px')
       ? 'px'
       : 'rem';
-  }
+  }*/
 
   valToNumber(val) {
     return Number(val.replace('rem', '').replace('em', '').replace('%', ''));
@@ -441,7 +455,7 @@ class FluidProperty {
         {
           const prop = this.name.startsWith ('grid-auto') ? this.name.includes ('rows') ? 'grid-template-rows' : 'grid-template-columns' : this.name;
          
-          let propVal = getComputedStyle (this.el).getPropertyValue (prop);
+          let propVal = getCachedComputedStyle (this.el, this.computedStyleCache).getPropertyValue (prop);
 
           this.customTransition.startValues = propVal.split(' ').map (strVal => parseSingleVal(strVal));
         }
@@ -499,7 +513,7 @@ class FluidProperty {
     return values;
   }
 
-  static Parse(el, name, valuesByBreakpoint, breakpoints, autoTransition) {
+  static Parse(el, name, valuesByBreakpoint, breakpoints, autoTransition, computedStyleCache) {
     const instanceName = name.replace('-min', '');
     if (autoTransition && !name.startsWith ('--grid')) {
       if (!el.variables) el.variables = [];
@@ -512,10 +526,11 @@ class FluidProperty {
         instanceName,
         valuesByBreakpoint,
         breakpoints,
-        autoTransition
+        autoTransition,
+        computedStyleCache
       );
     } else {
-      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, autoTransition);
+      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, autoTransition, computedStyleCache);
     }
   }
 
@@ -569,6 +584,113 @@ class FluidPropertyCombo extends FluidProperty {
   }
 }
 
+function getCachedComputedStyle (el, cache) 
+{
+  if(!cache.has (el))
+    cache.set (el, getComputedStyle (el));
+  
+  return cache.get (el);
+}
+
+function getCachedBoundingClientRect (el, cache)
+{
+  if(!cache.has (el))
+    cache.set (el, el.getBoundingClientRect());
+  
+  return cache.get (el);
+}
+
+const rootFontSizeEl = document.createElement("div");
+rootFontSizeEl.id = 'root-font-size';
+rootFontSizeEl.style.position = "absolute";
+rootFontSizeEl.style.visibility = "hidden";
+rootFontSizeEl.style.height = "1rem";
+document.body.appendChild(rootFontSizeEl);
+
+const observer = new ResizeObserver(() => {
+  const newRem = rootFontSizeEl.offsetHeight;
+  
+  rootFontSize = newRem;
+  rootFontSizeChanged.forEach (cb => cb());
+  // You can now update your px conversions
+});
+
+observer.observe(rootFontSizeEl);
+
+let rootFontSize = 16;
+const rootFontSizeChanged = [];
+
+const unitToPx = {
+  in: 96,
+  cm: 96 / 2.54,
+  mm: 96 / 25.4,
+  pt: 96 / 72,
+  pc: 16, 
+};
+
+function getCharUnit(el, unit = 'ch') {
+  const test = document.createElement('span');
+  test.style.visibility = 'hidden';
+  test.style.position = 'absolute';
+  test.style.font = getComputedStyle(el).font;
+  test.textContent = unit === 'ch' ? '0' : 'x';
+  document.body.appendChild(test);
+  const rect = test.getBoundingClientRect();
+  document.body.removeChild(test);
+  return unit === 'ch' ? rect.width : rect.height;
+}
+
+function convertToPx (val, unit, property, el, boundClientRectCache)
+{
+  switch(unit)
+  {
+    case "px":
+      return val;
+    case "rem":
+      return val * rootFontSize;
+    case "em":
+      const targetEl = property === 'font-size' ? el.parentElement : el;
+      const targetFontSize = getCachedComputedStyle (targetEl).fontSize;
+
+      const targetVal = parseSingleVal (targetFontSize);
+      const targetUnit = extractUnit (targetFontSize);
+
+      return convertToPx(targetVal, targetUnit, 'font-size', targetEl) * val;
+    case "%":
+      
+      switch(property)
+      {
+        case "height":
+        case "top":
+        case "bottom":
+          return (val / 100) * getCachedBoundingClientRect (el, boundClientRectCache).height; 
+      }
+
+      return (val / 100) * getCachedBoundingClientRect(el, boundClientRectCache).width;
+
+    case "vw":
+      return (val / 100) * window.innerWidth;
+    case "vh":
+      return (val / 100) * window.innerHeight;
+
+    case "vmin":
+      return (val / 100) * Math.min (window.innerWidth, window.innerHeight);
+    case "vmax":
+      return (val / 100) * Math.max (window.innerWidth, window.innerHeight);
+    
+    case 'cm':
+    case 'mm':
+    case 'in':
+    case 'pt':
+    case 'pc':
+      return val * unitToPx[unit];
+
+    case 'ch':
+    case 'ex':
+      return val * getCharUnit(el, unit);
+        
+  }
+}
 
 function applyEasing (easing, t)
 {
@@ -733,12 +855,9 @@ function parseRepeat(value) {
 
 function isStrVal (val)
 {
-  if (val === 'auto' || val === 'min-content' || val === 'max-content' || val === 'fit-content')
-    return true;
-
-  return false;
+ return (!/^[\d.]/.test (val));
 }
-function parseSingleVal (val, unit)
+function parseSingleVal (val)
 {
   if (isStrVal(val))
     return val;
@@ -748,6 +867,12 @@ const number = match ? parseFloat(match[0]) : null;
 
 return number;
 }
+function extractUnit(input) {
+  const match = input.match(/[a-z%]+$/i);
+  return match ? match[0] : null;
+}
+
+
 
 let CSSRuleRef;
 let mediaBps;
@@ -988,15 +1113,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         let unitValues = unitsBase.map((val) =>
           val.startsWith ('0') ? null : fluidPropertyName === 'line-height'
             ? ''
-            : val.includes('rem')
-            ? 'rem'
-            : val.includes('em')
-            ? 'em'
-            : val.includes('%')
-            ? '%'
-            : val.includes('px')
-            ? 'px'
-            : null
+            : extractUnit (val)
         );
         minValues = minValues.map((val) =>
           parseSingleVal (val)
@@ -1016,7 +1133,6 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           const root = unitValues.find(unit => unit !== null) || 'rem';
           unitValues = unitValues.map ((u) => u || root);
         }
-
         if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
 
         let bpMap;
