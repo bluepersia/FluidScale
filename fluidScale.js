@@ -746,6 +746,34 @@ function findCSSRuleConstructor(rules) {
   return null;
 }
 
+
+function parseMinMax(value)
+{
+  const minmaxMatch = value.match(/^minmax\(\s*([^,]+)\s*,\s*([^)]+)\s*\)$/);
+  if (minmaxMatch) {
+    const min = minmaxMatch[1].trim();
+    const max = minmaxMatch[2].trim();
+    return [min, max];
+  }
+
+  return [null, value];
+}
+
+function parseAllCalcs (value)
+{
+  return value.replaceAll(', ', '_SEP_').split(' ').map(val => {
+    val = val.replaceAll('_SEP_', ', ');
+    const minMax  = parseMinMax (val);
+
+    if(minMax[0])
+      return minMax;
+    
+
+    return val;
+  })
+}
+
+
 const clockSymmetry = [
   'margin',
   'padding',
