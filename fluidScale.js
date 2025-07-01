@@ -747,27 +747,46 @@ function findCSSRuleConstructor(rules) {
 }
 
 
-function parseMinMax(value)
+function parseCalc(value, type)
 {
-  const minmaxMatch = value.match(/^minmax\(\s*([^,]+)\s*,\s*([^)]+)\s*\)$/);
-  if (minmaxMatch) {
-    const min = minmaxMatch[1].trim();
-    const max = minmaxMatch[2].trim();
-    return [min, max];
+  const regexp = new RegExp(`^${type}\(\s*([^,]+)\s*,\s*([^)]+)\s*\)$`)
+  const match = value.match(regexp);
+  if (match) {
+    return [type, match.slice (1).map (v => v.trim())];
   }
 
   return [null, value];
 }
 
+
 function parseAllCalcs (value)
 {
   return value.replaceAll(', ', '_SEP_').split(' ').map(val => {
     val = val.replaceAll('_SEP_', ', ');
-    const minMax  = parseMinMax (val);
+    const minMax  = parseCalc (val, 'minmax');
 
     if(minMax[0])
       return minMax;
-    
+
+    const max = parseCalc(val, 'max');
+
+    if(max[0])
+      return max;
+
+    const min = parseCalc (val, 'min');
+
+    if(min[0])
+      return min;
+
+    const clamp = parseCalc (val, 'clamp');
+
+    if(clamp[0])
+      return clamp;
+
+    const calc = parseCalc (val, 'calc');
+
+    if(calc[0])
+      return calc;
 
     return val;
   })
@@ -862,7 +881,8 @@ function stretch (smaller, larger, map)
 }
 
 function parseGridTemplateColumns(value) {
-  const match = value.match(/^repeat\(\s*(auto-fit|auto-fill)\s*,\s*([^)]+)\s*\)$/);
+  
+  const match = value.match(/^repeat\(\s*(auto-fit|auto-fill)\s*,\s*(.+)\)$/);
   if (match) {
     return match[2].trim();
   }
