@@ -589,9 +589,9 @@ class FluidProperty {
 
   update(breakpointIndex, currentWidth) {
     
-    if(this.lastWindowWidthApplied === currentWidth)
+    if(this.lastWindowWidthApplied === currentWidth && this.isSet)
       return;
-    
+
     if(!isInViewport (this.el, this.boundClientRectCache))
     {
       if(this.isSet)
