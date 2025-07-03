@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.0.1658-alpha]- 2025-07-02
+
+1. % should work correctly now
+2. Some visual improvements
+
 ## [0.0.1657-alpha]- 2025-07-02
 
 1. Minmax, max, min, clamp and calc support.

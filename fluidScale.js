@@ -399,6 +399,7 @@ class FluidProperty {
     this.el = el;
     this.fs = fs;
     this.name = name;
+    this.isSet = '';
     this.valuesByBreakpoint = breakpoints.map((bp, index) =>
       valuesByBreakpoint.find((vbbp) => vbbp?.bpIndex === index)
     );
@@ -479,7 +480,7 @@ class FluidProperty {
 
       if(Array.isArray (minVal) && minVal[0] === 'break')
       {
-        
+       
           return minVal[1];
       }
         const maxVal = computeVal (maxRaw, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
@@ -589,7 +590,11 @@ class FluidProperty {
   update(breakpointIndex, currentWidth) {
     
     if(!isInViewport (this.el, this.boundClientRectCache))
+    {
+      if(this.isSet)
+        this.el.style.removeProperty (this.isSet);
       return;
+    }
    
     const strValue = this.toString(breakpointIndex, currentWidth);
    
@@ -597,30 +602,45 @@ class FluidProperty {
       let propertyName = fluidPropertySync[this.name] || this.name;
 
       if (this.name === 'grid-auto' || this.name === 'grid-auto-fit')
+      {
+        this.isSet = 'grid-template-columns'
         this.el.style.setProperty(
-          'grid-template-columns',
+          this.isSet,
           `repeat(auto-fit, ${strValue})`
         );
+      }
       else if (this.name === 'grid-auto-fill')
+      {
+        this.isSet = 'grid-template-columns'
         this.el.style.setProperty(
-          'grid-template-columns',
+          this.isSet,
           `repeat(auto-fill, ${strValue})`
         )
-        if (this.name === 'grid-auto-rows' || this.name === 'grid-auto-fit-rows')
+      }
+      else if (this.name === 'grid-auto-rows' || this.name === 'grid-auto-fit-rows')
+      {
+        this.isSet = 'grid-template-rows';
           this.el.style.setProperty(
-            'grid-template-rows',
+            this.isSet,
             `repeat(auto-fit, ${strValue})`
           );
+        }
         else if (this.name === 'grid-auto-fill')
+        {
+          this.isSet = 'grid-template-rows';
           this.el.style.setProperty(
-            'grid-template-rows',
+            this.isSet,
             `repeat(auto-fill, ${strValue})`
           )
-      else this.el.style.setProperty(propertyName, strValue);
-
+        }
+      else { 
+        this.isSet = propertyName;
+        this.el.style.setProperty(propertyName, strValue);
+      }
       return;
     }
-    this.el.style.setProperty(`--fluid-${this.name}-value`, strValue);
+    this.isSet = `--fluid-${this.name}-value`;
+    this.el.style.setProperty(this.isSet, strValue);
   }
 }
 
@@ -816,15 +836,24 @@ function convertToPx (val, unit, property, el, computedStyleCache, boundClientRe
       return convertToPx(targetVal, targetUnit, 'font-size', targetEl, computedStyleCache, boundClientRectCache) * val;
     case "%":
       
+      const parentStyle = getCachedComputedStyle(el.parentElement, computedStyleCache);
+      const parentEl = el.parentElement;
       switch(property)
       {
         case "height":
         case "top":
         case "bottom":
-          return (val / 100) * getCachedBoundingClientRect (el, boundClientRectCache).height; 
+          const padTop = parentStyle.paddingTop;
+          const padBtm = parentStyle.paddingBottom;
+          const padding = convertToPx (parseSingleVal (padTop), extractUnit(padTop, 'padding-top'), 'padding-top', parentEl, computedStyleCache, boundClientRectCache) + convertToPx (parseSingleVal (padBtm), extractUnit(padBtm, 'padding-bottom'), 'padding-bottom', parentEl, computedStyleCache, boundClientRectCache);
+          return (val / 100) * (getCachedBoundingClientRect (el.parentElement, boundClientRectCache).height - padding);
       }
-
-      return (val / 100) * getCachedBoundingClientRect(el, boundClientRectCache).width;
+      
+      const padLeft = parentStyle.paddingLeft
+      const padRight = parentStyle.paddingRight;
+      const padding = convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', parentEl, computedStyleCache, boundClientRectCache) + convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', parentEl, computedStyleCache, boundClientRectCache);
+     
+      return (val / 100) * (getCachedBoundingClientRect(el.parentElement, boundClientRectCache).width - padding);
 
     case "vw":
       return (val / 100) * window.innerWidth;
@@ -935,6 +964,7 @@ function tryParseCalcs (val)
 }
 
 function parseCalc(value, type) {
+
 
   const prefix = `${type}(`;  
   if (!value.startsWith(prefix) || !value.endsWith(')')) return [null, value];
