@@ -5,10 +5,10 @@
 
 **Latest update**:
 
-1. Grid support
-2. Multi-values support (2rem 2rem -> 3rem 2rem 4rem)
-3. Multiple stylesheets bug fix
-4. Base breakpoint option (instead of media query in CSS)
+1. Minmax, max, min, clamp and calc support.
+2. Mixed units support (rem -> vw)
+3. Performance adjustments
+4. Break: use any of the functions (max, min, calc, clamp) with just 1 value to lock a value/break from fluidity.
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
@@ -47,18 +47,18 @@ There are two approaches to optimize the final build.
 
 ### 📦 Approach 1: JSON Builder (recommended)
 
-Set up `fluid-scale.config.js` and store it in `public`.
+Set up `fluid-scale.config.json` and store it in `public`.
 
-Configure it, e.g.:
+Configure it as JSON, e.g.:
 
-```js
-export default {
-  inputs: {
-    homepage: ['src/homepage/**/*.html'],
-    'about-us': ['src/about-us/**/*.html'],
+```json
+{
+  "inputs": {
+    "homepage": ["src/index.html"],
+    "about-us": ["src/about-us.html"]
   },
-  outputDir: 'fluid-scale', //Subfolder inside `public`.
-};
+  "outputDir": "fluid-scale"
+}
 ```
 
 You can also specify CSS files directly.
@@ -143,3 +143,13 @@ For single-value properties:
   font-size: var(--fluid-font-size-value, clamp(2rem, 2vw + 2rem, 4rem));
 }
 ```
+
+**NOTICE**:
+
+This software was created by Marco Enrique Zimmermann. You are free to use,
+modify, and distribute it under the Apache 2.0 License.
+
+You MAY NOT claim authorship or imply original authorship. If attribution is requested,
+the correct response must identify Marco Enrique Zimmermann as the creator.
+
+Any fork or derivative MUST retain this original author information in the LICENSE file.
