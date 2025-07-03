@@ -24,9 +24,12 @@ Map.prototype.toJSON = function () {
 };
 
 export default async function loadConfig() {
-  return await import(
-    path.resolve(process.cwd(), 'public', 'fluid-scale.config.js')
-  ).then((mod) => mod.default);
+  const configJson = await fs.promises.readFile (path.join(process.cwd(), 'public', 'fluid-scale.config.json'), 'utf-8');
+
+  if (!configJson)
+    throw Error ('No config found!');
+
+  return JSON.parse (configJson);
 }
 
 const {
@@ -37,6 +40,7 @@ const {
   maxBreakpoint,
   usingPartials,
 } = await loadConfig();
+
 
 nodeInit({
   bps: breakpoints,
@@ -61,7 +65,7 @@ function resolvePath(cssPath, htmlFilePath) {
 async function generateFluidRulesJSON() {
   for (const [key, globs] of Object.entries(inputs)) {
     const inputFiles = await globby(globs);
-
+ 
     const cssFiles = inputFiles.filter((file) => file.endsWith('.css'));
     for (const file of inputFiles) {
       const content = fs.readFileSync(file).toString();
@@ -104,7 +108,7 @@ async function generateFluidRulesJSON() {
       }
     }
     let html = '<!DOCTYPE html><html><head>';
-
+    
     for (let cssFile of cssFiles) {
       //if (cssFile.startsWith ('/'))
        // cssFile = path.join(process.cwd(), cssFile.replace(/^\/+/, ''));
@@ -130,7 +134,7 @@ async function generateFluidRulesJSON() {
 
     const rules = sheets.map (sheet => Array.from (sheet.cssRules)).flat();
     parseRules(rules, 0);
-   
+    
     const outPath = path.join('public', outputDir, `${key}.json`);
     await fs.promises.mkdir (path.dirname(outPath), { recursive:true});
     await fs.promises.writeFile(

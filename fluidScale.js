@@ -1,5 +1,7 @@
 let React;
+import { Parser } from "expr-eval";
 
+const evalParser = new Parser ();
 /*
 async function loadReact() {
   try {
@@ -60,6 +62,7 @@ const fluidPropertySync = {
   columns: 'grid-template-columns',
   rows: 'grid-template-rows',
 };
+/*
 const noMin = [
   'box-shadow',
   'font-size',
@@ -81,7 +84,7 @@ const noMin = [
   'grid-auto-rows',
   'grid-auto-fit-rows',
   'grid-auto-fill-rows',
-];
+];*/
 
 let breakpoints;
 let autoBreakpoints;
@@ -171,7 +174,10 @@ class FluidScale {
     this.autoTransition = autoTransition;
     this.elVariables = {};
     this.updateBound = this.update.bind(this);
-    window.addEventListener('resize', this.updateBound);
+    this.onResizeBound = this.onResize.bind(this);
+    window.addEventListener('resize', this.onResizeBound);
+    window.addEventListener('scroll', this.onResizeBound);
+    rootFontSizeChanged.push (this.updateBound);
 
     if (!json && (this.breakpoints !== breakpoints || wasParsed)) {
       if (!usingPartials)
@@ -228,7 +234,10 @@ class FluidScale {
               variableName,
               arr,
               breakpoints,
-              this.autoTransition
+              this.autoTransition,
+              this.computedStyleCache,
+              this.boundClientRectCache,
+              this
             );
 
             this.fluidProperties.push(fluidProperty);
@@ -261,7 +270,10 @@ class FluidScale {
                   variableName,
                   arr,
                   this.breakpoints,
-                  this.autoTransition
+                  this.autoTransition,
+                  this.computedStyleCache,
+                  this.boundClientRectCache,
+                  this
                 );
                 this.fluidProperties.push(fluidProperty);
 
@@ -304,7 +316,26 @@ class FluidScale {
     );
   }
 
-  update() {
+  updateDebounceCb = null
+  onResize ()
+  {
+    if (!this.updateDebounceCb)
+    {
+      this.updateDebounceCb = () =>
+      {
+        this.update ();
+        this.updateDebounceCb = null
+      }
+
+      setTimeout (this.updateDebounceCb, 100);
+    }
+  }
+
+  computedStyleCache = new Map();
+  boundClientRectCache = new Map();
+
+  calcCurrentWidth ()
+  {
     let currentWidth =
       window.innerWidth < this.minBreakpoint
         ? this.minBreakpoint
@@ -312,12 +343,15 @@ class FluidScale {
         ? this.maxBreakpoint
         : window.innerWidth;
 
+    if(currentWidth === this.currentWidth)
+      return;
+
     if (this.breakpoints.length === 0) return;
 
+    this.currentWidth = currentWidth;
+
     if (this.breakpoints.length === 1) {
-      this.fluidProperties.forEach((fluidProperty) =>
-        fluidProperty.update(0, currentWidth / this.breakpoints[0])
-      );
+      this.currentBpIndex = 0;
       return;
     }
 
@@ -333,34 +367,48 @@ class FluidScale {
       }
     }
 
+    this.currentBpIndex = currentBpIndex;
+  }
+  update() {
+    this.calcCurrentWidth ();
+
     this.fluidProperties = this.fluidProperties.filter((fp) => {
+      
       if (!fp.el.isConnected) return false;
-      fp.update(currentBpIndex, currentWidth);
+      fp.update(this.currentBpIndex, this.currentWidth);
       return true;
     });
+
+    this.computedStyleCache.clear();
+    this.boundClientRectCache.clear ();
   }
 
   destroy() {
-    window.removeEventListener('resize', this.updateBound);
+    window.removeEventListener('resize', this.onResizeBound);
+    window.removeEventListener ('scroll', this.onResizeBound);
+    rootFontSizeChanged.splice (rootFontSizeChanged.findIndex (this.updateBound), 1);
     this.observer?.disconnect();
   }
 }
 
 class FluidProperty {
-  noMin = false;
-  noUnit = false;
+  //noMin = false;
+  //noUnit = false;
   breakpoints = [];
-  constructor(el, name, valuesByBreakpoint, breakpoints) {
+  constructor(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, boundClientRectCache, fs) {
     this.el = el;
+    this.fs = fs;
     this.name = name;
     this.valuesByBreakpoint = breakpoints.map((bp, index) =>
       valuesByBreakpoint.find((vbbp) => vbbp?.bpIndex === index)
     );
     this.breakpoints = breakpoints;
+    this.computedStyleCache = computedStyleCache;
+    this.boundClientRectCache = boundClientRectCache;
+    
+    //if (name === 'line-height') this.noUnit = true;
 
-    if (name === 'line-height') this.noUnit = true;
-
-    if(name.startsWith ('--grid'))
+    if(name.startsWith ('grid-auto'))
     {
       this.customTransition = {
         startTime: performance.now (),
@@ -369,9 +417,9 @@ class FluidProperty {
         delay: autoTransition?.delay || 0
       }
     }
-    for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
+    //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
   }
-
+/*
   getValUnit(val) {
     return this.noUnit
       ? ''
@@ -388,9 +436,9 @@ class FluidProperty {
 
   valToNumber(val) {
     return Number(val.replace('rem', '').replace('em', '').replace('%', ''));
-  }
-
+  }*/
   getValues(breakpointIndex, currentWidth) {
+    
     if (breakpointIndex >= this.breakpoints.length - 1)
       breakpointIndex = this.breakpoints.length - 2;
 
@@ -416,21 +464,33 @@ class FluidProperty {
     );
 
     let values;
+   
     if(progress >= 1)
-      values = breakpointValues.maxValues;
+      values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
-        const rangeValue = breakpointValues.rangeValues[index];
-
-        if(!rangeValue)
+        const maxRaw = breakpointValues.maxValues[index];
+       
+        if(typeof val === 'string' || typeof maxRaw === 'string')
           return val;
+       
+        const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+
+      if(Array.isArray (minVal) && minVal[0] === 'break')
+      {
+        
+          return minVal[1];
+      }
+        const maxVal = computeVal (maxRaw, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+        
+       
+        const rangeValue = maxVal - minVal;
 
         
-        return val + (rangeValue * progress);
+        return minVal + (rangeValue * progress);
       });
-    
-
+   
     if (this.customTransition)
     {
       if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
@@ -441,9 +501,9 @@ class FluidProperty {
         {
           const prop = this.name.startsWith ('grid-auto') ? this.name.includes ('rows') ? 'grid-template-rows' : 'grid-template-columns' : this.name;
          
-          let propVal = getComputedStyle (this.el).getPropertyValue (prop);
+          let propVal = getCachedComputedStyle (this.el, this.computedStyleCache).getPropertyValue (prop);
 
-          this.customTransition.startValues = propVal.split(' ').map (strVal => parseSingleVal(strVal));
+          this.customTransition.startValues = propVal.split(' ').map (strVal => convertToPx(parseSingleVal(strVal), extractUnit(strVal, this.name), this.name, this.el, this.boundClientRectCache));
         }
         this.customTransition.targetValues = values;
         this.customTransition.startTime = performance.now ();
@@ -453,7 +513,8 @@ class FluidProperty {
         
         setTimeout (()=> {
           this.customTransition.engine = setInterval(() => { 
-            this.update (breakpointIndex, currentWidth)
+            this.fs.calcCurrentWidth();
+            this.update (this.fs.currentBpIndex, this.fs.currentWidth)
           }, 16);
       }, this.customTransition.delay);
       }
@@ -472,7 +533,7 @@ class FluidProperty {
         
         values = values.map ((val, index) => {
           const startValue = this.customTransition.startValues[index];
-          if(isStrVal(startValue))
+          if(!isNumber(startValue))
             return progress >= 1 ? val : startValue;
 
           const range = val - startValue;
@@ -485,37 +546,39 @@ class FluidProperty {
     
     this.lastValues = values;
     values = values.map((val, index) => {
-      return `${val}${
-        breakpointValues.unitValues[index]
-      }`;
+      return !isNumber(val) ? val :`${val}px`;
   });
 
+  /*
     if(!this.noMin)
      values = values.map((val) => {
       return `min(${val}, 100%)`;
-    });
+    });*/
 
    
     return values;
   }
 
-  static Parse(el, name, valuesByBreakpoint, breakpoints, autoTransition) {
+  static Parse(el, name, valuesByBreakpoint, breakpoints, autoTransition, computedStyleCache, clientBoundRectCache, fs) {
     const instanceName = name.replace('-min', '');
     if (autoTransition && !name.startsWith ('--grid')) {
       if (!el.variables) el.variables = [];
 
       el.variables.push(name);
     }
+ 
     if (valuesByBreakpoint.some((vbbp) => vbbp?.isCombo)) {
       return new FluidPropertyCombo(
         el,
         instanceName,
         valuesByBreakpoint,
         breakpoints,
-        autoTransition
+        computedStyleCache,
+        clientBoundRectCache,
+        fs
       );
     } else {
-      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, autoTransition);
+      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, clientBoundRectCache, fs);
     }
   }
 
@@ -524,6 +587,10 @@ class FluidProperty {
   }
 
   update(breakpointIndex, currentWidth) {
+    
+    if(!isInViewport (this.el, this.boundClientRectCache))
+      return;
+   
     const strValue = this.toString(breakpointIndex, currentWidth);
    
     if (autoApply) {
@@ -569,6 +636,230 @@ class FluidPropertyCombo extends FluidProperty {
   }
 }
 
+function getCachedComputedStyle (el, cache) 
+{
+  if(!cache.has (el))
+    cache.set (el, getComputedStyle (el));
+  
+  return cache.get (el);
+}
+
+function getCachedBoundingClientRect (el, cache)
+{
+  if(!cache.has (el))
+    cache.set (el, el.getBoundingClientRect());
+  
+  return cache.get (el);
+}
+
+function isInViewport(el, cache) {
+  const rect = getCachedBoundingClientRect (el, cache);
+  
+  const vwWidth = window.innerWidth;
+  const vwHeight = window.innerHeight;
+
+  const marginPercent = 0.15;
+  const marginX = vwWidth * marginPercent;
+  const marginY = vwHeight * marginPercent;
+  return (
+    rect.bottom    >= -marginY &&
+    rect.right   >= -marginX &&
+    rect.top <= vwHeight + marginY &&
+    rect.left  <= vwWidth + marginX
+  );
+}
+let rootFontSizeEl;
+try {
+rootFontSizeEl = document.createElement("div");
+rootFontSizeEl.id = 'root-font-size';
+rootFontSizeEl.style.position = "absolute";
+rootFontSizeEl.style.visibility = "hidden";
+rootFontSizeEl.style.height = "1rem";
+document.body.appendChild(rootFontSizeEl);
+
+const observer = new ResizeObserver(() => {
+  const newRem = rootFontSizeEl.offsetHeight;
+  
+  rootFontSize = newRem;
+  rootFontSizeChanged.forEach (cb => cb());
+  // You can now update your px conversions
+});
+
+observer.observe(rootFontSizeEl);
+}catch(err){}
+let rootFontSize = 16;
+const rootFontSizeChanged = [];
+
+const unitToPx = {
+  in: 96,
+  cm: 96 / 2.54,
+  mm: 96 / 25.4,
+  pt: 96 / 72,
+  pc: 16, 
+};
+
+
+function getCharUnit(el, unit = 'ch') {
+  const test = document.createElement('span');
+  test.style.visibility = 'hidden';
+  test.style.position = 'absolute';
+  test.style.font = getComputedStyle(el).font;
+  test.textContent = unit === 'ch' ? '0' : 'x';
+  document.body.appendChild(test);
+  const rect = test.getBoundingClientRect();
+  document.body.removeChild(test);
+  return unit === 'ch' ? rect.width : rect.height;
+}
+
+function isArithemtic (v)
+{
+  if(typeof v !== 'string')
+    return false;
+
+  return v === '+' || v === '-' || v === '/' || v === '*';
+}
+function isNumber(value) {
+  return typeof value === 'number' && isFinite(value);
+}
+function computeVal (val, units, property, el, computedStyleCache, boundClientRectCache)
+{
+  
+  if(Array.isArray (val))
+  {
+    return computeCalc(val[0], val[1], units[1], property, el, computedStyleCache, boundClientRectCache);
+  }
+  return convertToPx (val, units, property, el, computedStyleCache, boundClientRectCache);
+}
+
+function computeCalc (type, arr, units, property, el, computedStyleCache, boundClientRectCache)
+{
+  const pxValues = arr.map ((v, index) => isArithemtic (v) ? v : computeVal(v, units[index], property, el, computedStyleCache, boundClientRectCache));
+
+  switch(type)
+  {
+    case "break":
+      return ['break', pxValues[0]];
+    case "min":
+      return Math.min (...pxValues);
+    case "max":
+      return Math.max (...pxValues);
+    case "clamp": 
+      const [minVal, fluidVal, maxVal] = pxValues;
+      return Math.min(Math.max(fluidVal, minVal), maxVal);
+    case "calc":
+      const expr = evalParser.parse (pxValues.join(' '));
+      return expr.evaluate ();
+    case "minmax":
+      const style = getCachedComputedStyle (el, computedStyleCache);
+      switch(property)
+      {
+        case "grid-auto-fit":
+        case "grid-auto-fill": {
+          const gap = style.columnGap || style.gap || 0;
+          const gapProperty = style.columnGap ? 'column-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
+       
+          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).width, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+        }
+        case "grid-auto-fit-rows":
+        case "grid-auto-fill-rows": {
+          const gap = style.rowap || style.gap || 0;
+          const gapProperty = style.rowGap ? 'row-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
+          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).height, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+        }
+      }
+
+      return Math.max(pxValues[0], pxValues[1]);
+  }
+}
+
+function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0) {
+  const totalGap = (n) => (n - 1) * gap;
+
+  // Try to fit as many tracks of `minTrackSize` as possible
+  let numTracks;
+  if (minTrackSize === 0) {
+    // Fallback to maximum possible tracks, limited by maxTrackSize
+    numTracks = Math.floor((containerWidth + gap) / (1 + gap)); // assume 1px to avoid division by 0
+    numTracks = Math.max(1, numTracks);
+    return maxTrackSize; // Use the max value if min is 0
+  }
+
+  // Edge case: make sure we have at least one track
+  numTracks = Math.max(1, numTracks);
+
+  // Calculate available space per track
+  const spaceForTracks = containerWidth - totalGap(numTracks);
+  const trackSize = Math.min(maxTrackSize, Math.max(minTrackSize, spaceForTracks / numTracks));
+
+ return trackSize;
+}
+
+function convertToPx (val, unit, property, el, computedStyleCache, boundClientRectCache)
+{
+  switch(unit)
+  {
+    case "px":
+      return val;
+    case "rem":
+      return val * rootFontSize;
+    case "em":
+      const targetEl = property === 'font-size' ? el.parentElement : el;
+      const targetFontSize = getCachedComputedStyle (targetEl, computedStyleCache).fontSize;
+
+      const targetVal = parseSingleVal (targetFontSize);
+      const targetUnit = extractUnit (targetFontSize, 'font-size');
+
+      return convertToPx(targetVal, targetUnit, 'font-size', targetEl, computedStyleCache, boundClientRectCache) * val;
+    case "%":
+      
+      switch(property)
+      {
+        case "height":
+        case "top":
+        case "bottom":
+          return (val / 100) * getCachedBoundingClientRect (el, boundClientRectCache).height; 
+      }
+
+      return (val / 100) * getCachedBoundingClientRect(el, boundClientRectCache).width;
+
+    case "vw":
+      return (val / 100) * window.innerWidth;
+    case "vh":
+      return (val / 100) * window.innerHeight;
+
+    case "vmin":
+      return (val / 100) * Math.min (window.innerWidth, window.innerHeight);
+    case "vmax":
+      return (val / 100) * Math.max (window.innerWidth, window.innerHeight);
+    
+    case 'cm':
+    case 'mm':
+    case 'in':
+    case 'pt':
+    case 'pc':
+      return val * unitToPx[unit];
+
+    case 'ch':
+    case 'ex':
+      return val * getCharUnit(el, unit);
+
+    case "lh": 
+      const style = getCachedComputedStyle(el, computedStyleCache);
+      const fontSize = style.fontSize;
+      const fsVal = parseSingleVal(fontSize);
+      const fsUnit = extractUnit(fontSize, 'font-size');
+      const fontSizePx = convertToPx(fsVal, fsUnit, 'font-size', el, computedStyleCache, boundClientRectCache);
+
+      if (val === "normal") 
+        return fontSizePx * 1.2;
+
+      return fontSizePx * val;
+  }
+}
 
 function applyEasing (easing, t)
 {
@@ -623,6 +914,125 @@ function findCSSRuleConstructor(rules) {
   }
   return null;
 }
+
+const calcFuncs = ['min', 'max', 'clamp', 'minmax', 'calc'];
+
+function tryParseCalcs (val)
+{
+
+  for(const calcFunc of calcFuncs)
+    {
+      const result = parseCalc (val, calcFunc);
+    
+      if(result[0])
+      {
+        return result;
+      }
+    }
+
+    return val;
+
+}
+
+function parseCalc(value, type) {
+
+  const prefix = `${type}(`;  
+  if (!value.startsWith(prefix) || !value.endsWith(')')) return [null, value];
+  //if (type === 'calc' && (value.includes(' ') && !isArithemtic (value))) return [null, value];
+
+  const inner = value.slice(prefix.length, -1).trim()
+
+
+  
+  //if(type === 'var')
+    //return inner;
+
+  if (type === "calc") {
+    
+    // Split into tokens: operands and operators
+    const tokens = [];
+    let depth = 0;
+    let current = "";
+
+    for (let i = 0; i < inner.length; i++) {
+      const char = inner[i];
+
+      if (char === "(") {
+        depth++;
+        current += char;
+      } else if (char === ")") {
+        depth--;
+        current += char;
+      } else if ("+-*/".includes(char) && depth === 0) {
+        if (current.trim()) tokens.push(tryParseCalcs(current.trim()));
+        tokens.push(char);
+        current = "";
+      } else {
+        current += char;
+      }
+    }
+
+
+    if (current.trim()) tokens.push(tryParseCalcs(current.trim()));
+    
+    return tokens.length === 1 ? ['break', tokens] : [type, tokens];
+  }
+
+  const args = [];
+  let depth = 0;
+  let current = '';
+
+  for (let i = 0; i < inner.length; i++) {
+    const char = inner[i];
+
+    if (char === '(') {
+      depth++;
+      current += char;
+    } else if (char === ')') {
+      depth--;
+      current += char;
+    } else if (char === ',' && depth === 0) {
+      args.push(tryParseCalcs (current.trim()));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  if (current) args.push(tryParseCalcs (current.trim()));
+  
+  return args.length === 1 ? ['break', args] : [type, args];
+}
+
+
+function parseAllCalcs(value) {
+ 
+  const parts = [];
+  let current = '';
+  let depth = 0;
+
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+
+    if (char === '(') {
+      depth++;
+    } else if (char === ')') {
+      depth--;
+    }
+
+    if (char === ' ' && depth === 0) {
+     
+      if (current.trim()) parts.push(tryParseCalcs(current.trim()));
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  if (current.trim()) parts.push(tryParseCalcs(current.trim()));   
+  return parts;
+}
+
 
 const clockSymmetry = [
   'margin',
@@ -711,8 +1121,11 @@ function stretch (smaller, larger, map)
   return stretched;
 }
 
+
+
 function parseGridTemplateColumns(value) {
-  const match = value.match(/^repeat\(\s*(auto-fit|auto-fill)\s*,\s*([^)]+)\s*\)$/);
+  
+  const match = value.match(/^repeat\(\s*(auto-fit|auto-fill)\s*,\s*(.+)\)$/);
   if (match) {
     return match[2].trim();
   }
@@ -733,12 +1146,16 @@ function parseRepeat(value) {
 
 function isStrVal (val)
 {
-  if (val === 'auto' || val === 'min-content' || val === 'max-content' || val === 'fit-content')
-    return true;
-
-  return false;
+ return (!/^[\d.]/.test (val));
 }
-function parseSingleVal (val, unit)
+function parseSingleValFull (val)
+{
+  if(Array.isArray (val))
+    return [val[0], val[1].map(v => parseSingleValFull (v))];
+
+  return parseSingleVal (val);
+}
+function parseSingleVal (val)
 {
   if (isStrVal(val))
     return val;
@@ -747,6 +1164,18 @@ const match = val.match(/[\d.]+/);
 const number = match ? parseFloat(match[0]) : null;
 
 return number;
+}
+function extractUnit(input, property) {
+  const match = input.match(/[a-z%]+$/i);
+  return match ? match[0] : property === 'line-height' ? 'lh' : 'px';
+}
+
+function parseUnit (val, property)
+{
+  if (Array.isArray (val))
+    return ['', val[1].map(v => parseUnit (v))]
+
+  return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
 }
 
 let CSSRuleRef;
@@ -872,8 +1301,9 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
               .trim();
           }
         }
+       
         
-        if (!value) continue;
+        if (!value || value.includes ('var(')) continue;
 
         let gridTemplateVarName;
         if (value.includes ('auto-') && !value.includes ('--grid-auto'))
@@ -900,13 +1330,14 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           const prevValuesForVar = prevValuesForRule[variableName];
           prevValuesForVar.push(value);
         }
-
+        const allCalcsParsed = parseAllCalcs (value);
+        
         let minValues;
         let maxValues;
         let isCombo = false;
         if (autoApply || fluidPropertyName.includes('-min')) {
        
-          minValues = value.split(' ');
+          minValues = allCalcsParsed;
           let maxVal;
           if (autoApply && minimizedMode) {
             // Search future breakpoints for the same selector and variable
@@ -955,7 +1386,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             if (!maxVal) continue;
           }
 
-          maxValues = maxVal.split(' ');       
+          maxValues = parseAllCalcs (maxVal);   
           if (maxValues.length !== minValues.length)
           {
             
@@ -976,7 +1407,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
           isCombo = true;
         } else {
-          const valueArr = value.split(' ');
+          const valueArr = allCalcsParsed;
           minValues = [valueArr[0]];
           maxValues = [valueArr[1]];
         }
@@ -984,39 +1415,31 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
         if (bpIndex === 0 && autoTransition)
           transition = rule.style.getPropertyValue('transition');
 
-        const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
-        let unitValues = unitsBase.map((val) =>
-          val.startsWith ('0') ? null : fluidPropertyName === 'line-height'
-            ? ''
-            : val.includes('rem')
-            ? 'rem'
-            : val.includes('em')
-            ? 'em'
-            : val.includes('%')
-            ? '%'
-            : val.includes('px')
-            ? 'px'
-            : null
-        );
+        //const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
+        const minUnits = minValues.map (v => parseUnit(v, fluidPropertyName));
+        const maxUnits = maxValues.map(v => parseUnit (v, fluidPropertyName));
+        //let unitValues = unitsBase.map((val) => parseUnit (val));
+
         minValues = minValues.map((val) =>
-          parseSingleVal (val)
+          parseSingleValFull (val)
         );
         maxValues = maxValues.map((val) =>
-          parseSingleVal(val)
+          parseSingleValFull(val)
         );
+
+        /*
         const rangeValues = minValues.map(
           (minVal, index) => { 
             const maxVal = maxValues[index] || maxValues[maxValues.length - 1];
             return isStrVal (minVal) || isStrVal(maxVal) ? null : maxVal - minVal
           }
-        );
 
         if (unitValues.some(unit => unit === null))
         {
           const root = unitValues.find(unit => unit !== null) || 'rem';
           unitValues = unitValues.map ((u) => u || root);
         }
-
+        );*/
         if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
 
         let bpMap;
@@ -1029,11 +1452,11 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           selector: rule.selectorText,
           minValues,
           maxValues,
-          rangeValues,
-          unitValues,
+          minUnits,
+          maxUnits,
           variableName,
         });
-
+        
         if (isCombo) variableObj.isCombo = true;
         if (bpIndex !== -1) variableObj.bpIndex = bpIndex;
         if (bp) variableObj.bp = bp;
@@ -1129,7 +1552,9 @@ export async function loadJSON(path) {
   
   let config;
   try {
-    config = (await import('/fluid-scale.config.js')).default;
+    const response = await fetch('/fluid-scale.config.json');
+    if (response.ok) 
+      config = await response.json();
 
     if (config)
       path = `/${config.outputDir}/${path}`;
