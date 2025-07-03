@@ -5,6 +5,7 @@
 1. Minmax, max, min, clamp and calc support.
 2. Mixed units support (rem -> vw)
 3. Performance adjustments
+4. Break
 
 ## [0.0.1656-alpha]- 2025-06-30
 
