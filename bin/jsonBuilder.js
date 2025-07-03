@@ -49,7 +49,9 @@ nodeInit({
   usingPartials,
 });
 
-generateFluidRulesJSON();
+//const time = performance.now ();
+await generateFluidRulesJSON();
+//console.log ('Fluid build time:', performance.now() - time, 'ms');
 
 function resolvePath(cssPath, htmlFilePath) {
   if (/^(https?:)?\/\//.test(cssPath)) {

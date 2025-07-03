@@ -589,15 +589,23 @@ class FluidProperty {
 
   update(breakpointIndex, currentWidth) {
     
+    if(this.lastWindowWidthApplied === currentWidth)
+      return;
+    
     if(!isInViewport (this.el, this.boundClientRectCache))
     {
       if(this.isSet)
+      {
         this.el.style.removeProperty (this.isSet);
+        this.isSet = '';
+      }
       return;
     }
    
     const strValue = this.toString(breakpointIndex, currentWidth);
    
+    this.lastWindowWidthApplied = currentWidth;
+
     if (autoApply) {
       let propertyName = fluidPropertySync[this.name] || this.name;
 
@@ -637,6 +645,8 @@ class FluidProperty {
         this.isSet = propertyName;
         this.el.style.setProperty(propertyName, strValue);
       }
+
+      
       return;
     }
     this.isSet = `--fluid-${this.name}-value`;
@@ -678,7 +688,7 @@ function isInViewport(el, cache) {
   const vwWidth = window.innerWidth;
   const vwHeight = window.innerHeight;
 
-  const marginPercent = 0.15;
+  const marginPercent = 0.5;
   const marginX = vwWidth * marginPercent;
   const marginY = vwHeight * marginPercent;
   return (

@@ -1,6 +1,20 @@
 # Changelog
 
-## [0.0.1658-alpha]- 2025-07-02
+## [0.0.1659-alpha]- 2025-07-03
+
+### Fixed
+
+Unnecessary removeProperty calls
+
+### Changed
+
+Viewport computation inclusion margin increased to 50%.
+
+### Added
+
+Do not removeProperty back to default if the screen size didn't change.
+
+## [0.0.1658-alpha]- 2025-07-03
 
 1. % should work correctly now
 2. Some visual improvements
