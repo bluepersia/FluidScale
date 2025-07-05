@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.0.1666-alpha]- 2025-07-04
+
+### Added
+
+Shorthand + Longhand mixed support (e.g. padding -> padding-left)
+
+### Fixed
+
+Text-based value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
+
 ## [0.0.1659-alpha]- 2025-07-03
 
 ### Fixed

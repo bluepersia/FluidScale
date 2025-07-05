@@ -49,14 +49,23 @@ const fluidPropertyNames = [
   'background-position-min',
   'background-position-x',
   'background-position-y',
-  'border-radius',
-  'border-width',
+  'border-radius-min',
+  'border-top-left-radius',
+  'border-top-right-radius',
+  'border-bottom-right-radius',
+  'border-bottom-left-radius',
+  'border-width-min',
+  'border-top-width',
+  'border-left-width',
+  'border-right-width',
+  'border-bottom-width',
   'line-height',
   'top',
   'bottom',
   'left',
   'right',
-  'flex-basis'
+  'flex-basis',
+  'letter-spacing'
 ];
 const fluidPropertySync = {
   columns: 'grid-template-columns',
@@ -97,6 +106,8 @@ let autoTransition = true;
 let minimizedMode = true;
 let enableComments = false;
 let observerPaused = false;
+let forceGPU = true;
+let updateRate = 100;
 
 class FluidScale {
   fluidProperties = [];
@@ -133,9 +144,10 @@ class FluidScale {
     let wasParsed = stylesParsed;
 
     if (!stylesParsed && (!json || jsonLoaded !==  json)) {
+
       // run once on load
       let sheets = checkUsage
-        ? Array.from(document.styleSheets).filter((sheet) => {
+        ? (await waitForStylesheets()).filter((sheet) => {
             try {
               const ownerNode = sheet.ownerNode;
               if (!ownerNode) return false;
@@ -162,6 +174,7 @@ class FluidScale {
             return false;
           }
         })
+       
         parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
 
       stylesParsed = true;
@@ -298,10 +311,12 @@ class FluidScale {
             `${variable} ${time || '300'}ms ${easing || 'ease'} ${delay || ''}`
         );
 
-        const transitions = el.transition
-          ? [el.transition, ...varTransitions]
+        const transitions = el.transitions 
+          ? [...el.transitions, ...varTransitions]
           : varTransitions;
-        el.style.transition = transitions.join(', ');
+        el.transitionStr = transitions.join(', ');
+        el.transitionBaseStr = el.transitions ? [...el.transitions].join(', ') : '';
+        el.style.transition = el.transitionStr;
       }
     }
 
@@ -327,7 +342,7 @@ class FluidScale {
         this.updateDebounceCb = null
       }
 
-      setTimeout (this.updateDebounceCb, 100);
+      setTimeout (this.updateDebounceCb, updateRate);
     }
   }
 
@@ -406,6 +421,9 @@ class FluidProperty {
     this.breakpoints = breakpoints;
     this.computedStyleCache = computedStyleCache;
     this.boundClientRectCache = boundClientRectCache;
+
+    if(forceGPU)
+      constructGPUVersion (this);
     
     //if (name === 'line-height') this.noUnit = true;
 
@@ -448,7 +466,7 @@ class FluidProperty {
 
     let breakpointValues = this.valuesByBreakpoint[breakpointIndex];
 
-    if (!breakpointValues) return [];
+    if (!breakpointValues || (breakpointValues.minValues.some (v => typeof v === 'string') || breakpointValues.maxValues.some (v => typeof v === 'string') )) return [];
 
     function calcProgress(breakpointMin, breakpointMax) {
       return Math.min(
@@ -566,6 +584,18 @@ class FluidProperty {
       if (!el.variables) el.variables = [];
 
       el.variables.push(name);
+
+      if(!el.transitions) el.transitions = new Set();
+
+      for(const vbbp of valuesByBreakpoint)
+      {
+        if(vbbp?.transition)
+        {
+          const arr = vbbp.transition.split (',').map (t => t.trim());
+          for(const t of arr)
+            el.transitions.add (t);
+        }
+      }
     }
  
     if (valuesByBreakpoint.some((vbbp) => vbbp?.isCombo)) {
@@ -597,14 +627,29 @@ class FluidProperty {
       if(this.isSet)
       {
         this.el.style.removeProperty (this.isSet);
+        if(autoTransition?.onlyStart)
+          this.el.style.setProperty ('transition', this.el.transitionStr);
         this.isSet = '';
       }
       return;
     }
    
     const strValue = this.toString(breakpointIndex, currentWidth);
-   
+
+    if(!strValue && this.isSet)
+    {
+      this.el.style.removeProperty (this.isSet);
+      this.isSet = '';
+      return;
+    }
+
+    if(!this.isSet && autoTransition?.onlyStart)
+    {
+      setTimeout (() => this.el.style.setProperty ('transition', this.el.transitionBaseStr), autoTransition?.time || 300);
+    }
     this.lastWindowWidthApplied = currentWidth;
+
+   
 
     if (autoApply) {
       let propertyName = fluidPropertySync[this.name] || this.name;
@@ -646,6 +691,8 @@ class FluidProperty {
         this.el.style.setProperty(propertyName, strValue);
       }
 
+
+      
       
       return;
     }
@@ -664,6 +711,36 @@ class FluidPropertyCombo extends FluidProperty {
   toString(breakpointIndex, currentWidth) {
     return super.getValues(breakpointIndex, currentWidth).join(' ');
   }
+}
+
+function constructGPUVersion (fluidProperty)
+{
+  switch (fluidProperty.name)
+  {
+    case "font-size":
+    let maxFontSize;
+    let maxFontUnit;
+    for(let i = fluidProperty.valuesByBreakpoint.length - 1; i >= 0; i--)
+    {
+      const vbbp = fluidProperty.valuesByBreakpoint[i];
+      if(vbbp)
+      {
+        maxFontSize = vbbp.maxValues[0]; 
+        maxFontUnit = vbbp.maxUnits[0];
+      }
+    }
+    break;
+  }
+}
+
+async function waitForStylesheets(maxRetries = 10, delay = 50) {
+  for (let i = 0; i < maxRetries; i++) {
+    if (document.styleSheets.length > 0) {
+      return document.styleSheets;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+  throw new Error("Stylesheets didn't load in time");
 }
 
 function getCachedComputedStyle (el, cache) 
@@ -1073,7 +1150,36 @@ function parseAllCalcs(value) {
   return parts;
 }
 
+function splitByOuterSpaces(input) {
+  const result = [];
+  let buffer = '';
+  let depth = 0;
 
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+
+    if (char === '(') {
+      depth++;
+      buffer += char;
+    } else if (char === ')') {
+      depth--;
+      buffer += char;
+    } else if (char === ' ' && depth === 0) {
+      if (buffer) {
+        result.push(buffer);
+        buffer = '';
+      }
+    } else {
+      buffer += char;
+    }
+  }
+
+  if (buffer) {
+    result.push(buffer);
+  }
+
+  return result;
+}
 const clockSymmetry = [
   'margin',
   'padding',
@@ -1138,6 +1244,115 @@ const borderMap = new Map([
     'bottom-left':3 
   }]
 ])
+
+
+const explicitValues = {
+  'padding-left': [clockMap, 'padding', 'left'],
+  'padding-right': [ clockMap, 'padding', 'right'],
+  'padding-bottom': [clockMap, 'padding', 'bottom'],
+  'padding-top': [clockMap, 'padding', 'top'],
+
+  'margin-left': [clockMap, 'margin', 'left'],
+  'margin-right': [ clockMap, 'margin', 'right'],
+  'margin-bottom': [ clockMap, 'margin', 'bottom'],
+  'margin-top': [clockMap, 'margin', 'top'],
+
+  'border-top-width': [clockMap, 'border-width', 'top'],
+  'border-right-width': [clockMap, 'border-width', 'right'],
+  'border-bottom-width': [clockMap, 'border-width', 'bottom'],
+  'border-left-width': [clockMap, 'border-width', 'left'],
+
+  'border-top-style': [clockMap, 'border-style', 'top'],
+  'border-right-style': [clockMap, 'border-style', 'right'],
+  'border-bottom-style': [clockMap, 'border-style',  'bottom'],
+  'border-left-style': [clockMap, 'border-style', 'left'],
+
+  'border-top-color':[clockMap, 'border-color', 'top'],
+  'border-right-color':[clockMap, 'border-color', 'right'],
+  'border-bottom-color': [clockMap, 'border-color', 'bottom'],
+  'border-left-color': [clockMap, 'border-color',  'left'],
+
+  'top': [clockMap, 'inset', 'top'],
+  'right':[clockMap, 'inset', 'right'],
+  'bottom': [clockMap, 'inset', 'bottom'],
+  'left': [clockMap, 'inset', 'left'],
+
+  'scroll-padding-top': [clockMap, 'scroll-padding', 'top'],
+  'scroll-padding-right': [clockMap, 'scroll-padding', 'right'],
+  'scroll-padding-bottom': [clockMap, 'scroll-padding', 'bottom'],
+  'scroll-padding-left': [clockMap, 'scroll-padding', 'left'],
+
+  'scroll-margin-top': [clockMap, 'scroll-margin', 'top'],
+  'scroll-margin-right': [clockMap, 'scroll-margin', 'right'],
+  'scroll-margin-bottom': [clockMap, 'scroll-margin', 'bottom'],
+  'scroll-margin-left': [clockMap, 'scroll-margin', 'left'],
+
+  'border-top-left-radius': [borderMap, 'border-radius', 'top-left'],
+  'border-top-right-radius': [borderMap, 'border-radius', 'top-right'],
+  'border-bottom-right-radius': [borderMap, 'border-radius', 'bottom-right'],
+  'border-bottom-left-radius': [borderMap, 'border-radius', 'bottom-left'],
+}
+
+const shorthandValues = 
+{
+  'padding': [clockMap, {
+    'padding-left': 'left',
+    'padding-right': 'right',
+    'padding-top': 'top',
+    'padding-bottom': 'bottom'
+  }],
+  'margin': [clockMap, {
+    'margin-left': 'left',
+    'margin-right': 'right',
+    'margin-top': 'top',
+    'margin-bottom': 'bottom'
+  }],
+  'border-width': [clockMap, {
+    'border-left-width': 'left',
+    'border-right-width': 'right',
+    'border-top-width': 'top',
+    'border-bottom-width': 'bottom'
+  }],
+  'border-style': [clockMap, {
+    'border-left-style': 'left',
+    'border-right-style': 'right',
+    'border-top-style': 'top',
+    'border-bottom-style': 'bottom'
+  }],
+  'border-color': [clockMap, {
+    'border-left-color': 'left',
+    'border-right-color': 'right',
+    'border-top-color': 'top',
+    'border-bottom-color': 'bottom'
+  }],
+  'inset': [clockMap, {
+    'left': 'left',
+    'right': 'right',
+    'top': 'top',
+    'bottom': 'bottom'
+  }],
+  'scroll-padding': [clockMap, {
+    'scroll-padding-left': 'left',
+    'scroll-padding-right': 'right',
+    'scroll-padding-top': 'top',
+    'scroll-padding-bottom': 'bottom'
+  }],
+  'scroll-margin': [clockMap, {
+    'scroll-margin-left': 'left',
+    'scroll-margin-right': 'right',
+    'scroll-margin-top': 'top',
+    'scroll-margin-bottom': 'bottom'
+  }],
+  'border-radius': [borderMap, {
+    'border-top-left-radius': 'top-left',
+    'border-top-right-radius': 'top-right',
+    'border-bottom-right-radius': 'bottom-right',
+    'border-bottom-left-radius': 'bottom-left'
+  }]
+}
+
+
+
 function equalize (vals1, vals2, map)
 {
   if(vals2.length > vals1.length)
@@ -1197,11 +1412,11 @@ function parseSingleValFull (val)
 }
 function parseSingleVal (val)
 {
-  if (isStrVal(val))
-    return val;
+  //if (isStrVal(val))
+    //return val;
 
 const match = val.match(/[\d.]+/);
-const number = match ? parseFloat(match[0]) : null;
+const number = match ? parseFloat(match[0]) : val;
 
 return number;
 }
@@ -1216,6 +1431,57 @@ function parseUnit (val, property)
     return ['', val[1].map(v => parseUnit (v))]
 
   return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
+}
+
+function extractExplicitValue (rule, variableName)
+{
+  const explicitData = explicitValues[variableName];
+  if(explicitData)
+  {
+    const [symmetryMap, shorthand, posId] = explicitData;
+
+    const shorthandVal = rule.style.getPropertyValue (shorthand);
+    if (shorthandVal)
+    {
+      const shorthandValSpl = splitByOuterSpaces (shorthandVal);
+
+      const index = symmetryMap.get(shorthandValSpl.length)[posId];
+      return shorthandValSpl[index];
+    }
+    else if (shorthand === 'border-width')
+    {
+      const borderVal = rule.style.getPropertyValue ('border');
+
+      if(borderVal)
+        return extractBorderWidthFromBorderShorthand (borderVal);
+    }
+  }
+
+      return null;
+}
+ const BORDER_WIDTH_KEYWORDS = new Map([
+    ['thin', '1px'],
+    ['medium', '2px'],
+    ['thick', '3px']
+  ])
+
+function extractBorderWidthFromBorderShorthand(value) {
+ 
+  const parts = splitByOuterSpaces (value);
+
+  for (const part of parts) {
+    // If it's a length or keyword that matches border-width
+    if (
+      BORDER_WIDTH_KEYWORDS.has(part) // crude length match
+    ) {
+      return BORDER_WIDTH_KEYWORDS.get (part);
+    }
+    else if ( /^[\d.]+(px|em|rem|%)?$/.test(part))
+      return part;
+  }
+
+  // fallback
+  return null;
 }
 
 let CSSRuleRef;
@@ -1309,11 +1575,15 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       let bps = fluidVariableSelectors[rule.selectorText];
 
       for (const fluidPropertyName of fluidPropertyNames) {
+
         let variableName =  autoApply
           ? fluidPropertyName.replace('-min', '')
           : `${fluidPropertyName}`;
 
-          
+        if(autoApply && shorthandValues[variableName])
+          continue;
+
+        
         let value;
 
         if (bps && !minimizedMode) {
@@ -1341,9 +1611,16 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
               .trim();
           }
         }
-       
+
         
+        if (!value && autoApply)
+          value = extractExplicitValue (rule, variableName);
+        
+
         if (!value || value.includes ('var(')) continue;
+
+        
+      
 
         let gridTemplateVarName;
         if (value.includes ('auto-') && !value.includes ('--grid-auto'))
@@ -1371,7 +1648,6 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           prevValuesForVar.push(value);
         }
         const allCalcsParsed = parseAllCalcs (value);
-        
         let minValues;
         let maxValues;
         let isCombo = false;
@@ -1380,6 +1656,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           minValues = allCalcsParsed;
           let maxVal;
           if (autoApply && minimizedMode) {
+         
             // Search future breakpoints for the same selector and variable
             const startIndex = mediaBps.findIndex(
               ({ width }) => width === breakpoints[bpIndex + 1]
@@ -1388,20 +1665,87 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
             for (let i = startIndex; i < mediaBps.length; i++) {
               const { cssRules, width } = mediaBps[i];
-              const futureRule = [...cssRules].find((r) => {
-                processComments(r);
+              const futureVal = findMap(cssRules, r =>
+                {
+                  if(r.type === CSSRuleRef.STYLE_RULE &&
+                    r.selectorText === rule.selectorText)
+                  {
+                    let futureV = r.style.getPropertyValue(variableName);
+
+                    if(!futureV)
+                      futureV = extractExplicitValue (r, variableName);
+
+
+                    if(futureV)
+                      return futureV;
+
+                    return;
+                    const explicitData = explicitValues[variableName];
+                    const shorthandData = shorthandValues[variableName]
+                    if(explicitData || !shorthandData)
+                    {
+                      let futureV = r.style.getPropertyValue(variableName);
+                      
+                      if(futureV)
+                        return futureV;
+
+                      if(false && explicitData)
+                      {
+                        futureV = r.style.getPropertyValue (explicitData[1]);
+                        if (futureV)
+                        {
+                          const vSpl = splitByOuterSpaces (futureV);
+                          const symmetryMap = explicitData[0];
+                          
+                          const shorthandLength = vSpl.length;
+                          const symmetryDir = explicitData[2];
+                          const shorthandIndex = symmetryMap.get (shorthandLength)[symmetryDir];
+                          return vSpl[shorthandIndex];
+                        }
+                      }
+                      else if (false && shorthandData)
+                      {
+                        const symmetryMap = shorthandData[0];
+                        const symmetry4 = symmetryMap.get(4);
+                        const dirInfo = shorthandData[1];
+
+                        const futureExpl = new Array (4);
+                        
+                        for(const [dir, index] of Object.entries (symmetryMap.get(allCalcsParsed.length)))
+                          futureExpl[symmetry4[dir]] = allCalcsParsed[index];
+                        
+                        for(const [dirProp, dir] of Object.entries (dirInfo))
+                        {
+                          const index = symmetry4[dir];
+                          futureExpl[index] = r.style.getPropertyValue (dirProp);
+                        }
+
+                        const futureShort = splitByOuterSpaces (r.style.getPropertyValue (variableName));
+
+                        for(const [dir, index] of Object.entries (symmetryMap.get(futureShort.length)))
+                        {
+                          const dir4 = symmetry4[dir];
+                          if (!futureExpl[dir4])
+                            futureExpl[dir4] = futureShort[index];
+                        }
+
+                        return futureExpl.join (' ');
+                      }
+                    }
+                  }
+                })
+                /*;[...cssRules].find((r) => {
+                //processComments(r);
                 return (
-                  r.comments?.hasOwnProperty(variableName) ||
+                  //r.comments?.hasOwnProperty(variableName) ||
                   (r.type === CSSRuleRef.STYLE_RULE &&
                     r.selectorText === rule.selectorText &&
-                    r.style.getPropertyValue(`${variableName}`))
+                    r.style.getPropertyValue(variableName))
                 );
-              });
+              });*/
 
-              if (futureRule) {
-                maxVal =
-                  futureRule.comments?.[variableName] ||
-                  futureRule.style.getPropertyValue(variableName).trim();
+              if (futureVal) {
+                maxVal = futureVal.trim();
 
                 if (gridTemplateVarName)
                 {
@@ -1645,7 +1989,7 @@ export function nodeInit({
   maxBp,
   usingPartials: usingPs = true,
   autoApply: autoApp = true,
-  autoTransition: autoT = true,
+  autoTransition: autoT = false,
   minMode = true,
   enableComments: customCmm = false,
 }) {
@@ -1675,6 +2019,8 @@ export default async function init({
   autoTransition: autoT,
   minimizedMode: minMode,
   enableComments: customCmm,
+  forceGPU = false,
+  updateRate : updateRt
 } = {}) {
   autoBreakpoints = bps === 'auto';
   baseBreakpoint = baseBp;
@@ -1686,6 +2032,7 @@ export default async function init({
   if (typeof autoT === 'boolean' || autoT) autoTransition = autoT;
   if (typeof minMode === 'boolean') minimizedMode = minMode;
   if (typeof customCmm === 'boolean') enableComments = customCmm;
+  if (typeof updateRt === 'number') updateRate = updateRt;
 
   if (fluidScale) {
     fluidScale.autoTransition = autoTransition;
@@ -1717,6 +2064,16 @@ export default async function init({
 
   return fluidScale;
 }
+
+
+function findMap(array, mapFn) {
+  for (const item of array) {
+    const result = mapFn(item);
+    if (result) return result;
+  }
+  return undefined;
+}
+
 function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   let fs = fluidScale;
   const prevBatch = useRef(null);

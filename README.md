@@ -5,10 +5,8 @@
 
 **Latest update**:
 
-1. Minmax, max, min, clamp and calc support.
-2. Mixed units support (rem -> vw)
-3. Performance adjustments
-4. Break: use any of the functions (max, min, calc, clamp) with just 1 value to lock a value/break from fluidity.
+1. Shorthand + Longhand mixed support (e.g. padding -> padding-left)
+2. Text value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
@@ -113,6 +111,13 @@ then
 ```js
 fluidScale.addElements(...parentAndChildren);
 ```
+
+## ⛔ Breaking
+
+Sometimes you'll want a value to stay locked in place and not scale fluidly.
+Apply any of the math functions with just 1 value.
+e.g. `calc(4rem)`
+This tells FluidScale to stay at 4rem without scaling, until the next value is defined.
 
 ## 📐 Advanced
 
