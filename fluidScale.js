@@ -2,6 +2,41 @@ let React;
 import { Parser } from "expr-eval";
 
 const evalParser = new Parser ();
+
+let rootFontSize = 16;
+const rootFontSizeChanged = [];
+
+const unitToPx = {
+  in: 96,
+  cm: 96 / 2.54,
+  mm: 96 / 25.4,
+  pt: 96 / 72,
+  pc: 16, 
+};
+
+
+let rootFontSizeEl;
+try {
+rootFontSizeEl = document.createElement("div");
+rootFontSizeEl.id = 'root-font-size';
+rootFontSizeEl.style.position = "absolute";
+rootFontSizeEl.style.visibility = "hidden";
+rootFontSizeEl.style.height = "1rem";
+document.body.appendChild(rootFontSizeEl);
+const newRem = rootFontSizeEl.offsetHeight;
+  rootFontSize = newRem;
+  rootFontSizeChanged.forEach (cb => cb());
+const observer = new ResizeObserver(() => {
+  const newRem = rootFontSizeEl.offsetHeight;
+  
+  rootFontSize = newRem;
+  rootFontSizeChanged.forEach (cb => cb());
+  // You can now update your px conversions
+});
+
+observer.observe(rootFontSizeEl);
+}catch(err){}
+
 /*
 async function loadReact() {
   try {
@@ -11,7 +46,6 @@ async function loadReact() {
 
 loadReact();
 */
-
 const fluidPropertyNames = [
   'padding-min',
   'padding-top',
@@ -102,12 +136,12 @@ let minBreakpoint;
 let maxBreakpoint;
 let usingPartials = true;
 let autoApply = true;
-let autoTransition = true;
+let autoTransition = false;
 let minimizedMode = true;
 let enableComments = false;
 let observerPaused = false;
 let forceGPU = true;
-let updateRate = 100;
+let updateRate = 0;
 
 class FluidScale {
   fluidProperties = [];
@@ -173,8 +207,7 @@ class FluidScale {
             
             return false;
           }
-        })
-       
+        })       
         parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
 
       stylesParsed = true;
@@ -186,10 +219,10 @@ class FluidScale {
       maxBp || maxBreakpoint || this.breakpoints[this.breakpoints.length - 1];
     this.autoTransition = autoTransition;
     this.elVariables = {};
+    this.animateBound = this.animate.bind (this);
     this.updateBound = this.update.bind(this);
-    this.onResizeBound = this.onResize.bind(this);
-    window.addEventListener('resize', this.onResizeBound);
-    window.addEventListener('scroll', this.onResizeBound);
+    //this.onResizeBound = this.onResize.bind(this);
+    //window.addEventListener('scroll', this.onResizeBound);
     rootFontSizeChanged.push (this.updateBound);
 
     if (!json && (this.breakpoints !== breakpoints || wasParsed)) {
@@ -322,7 +355,7 @@ class FluidScale {
 
     if (this.observeRemove) {
     }
-    this.update();
+    requestAnimationFrame (this.animateBound);
   }
 
   removeElements(els) {
@@ -331,6 +364,14 @@ class FluidScale {
     );
   }
 
+  animate ()
+  {
+    if(this.destroyed)
+      return;
+
+    this.update ();
+    requestAnimationFrame (this.animateBound);
+  }
   updateDebounceCb = null
   onResize ()
   {
@@ -399,8 +440,9 @@ class FluidScale {
   }
 
   destroy() {
-    window.removeEventListener('resize', this.onResizeBound);
-    window.removeEventListener ('scroll', this.onResizeBound);
+    //window.removeEventListener('resize', this.onResizeBound);
+    //window.removeEventListener ('scroll', this.onResizeBound);
+    this.destroyed = true;
     rootFontSizeChanged.splice (rootFontSizeChanged.findIndex (this.updateBound), 1);
     this.observer?.disconnect();
   }
@@ -422,6 +464,7 @@ class FluidProperty {
     this.computedStyleCache = computedStyleCache;
     this.boundClientRectCache = boundClientRectCache;
 
+   
     if(forceGPU)
       constructGPUVersion (this);
     
@@ -436,6 +479,12 @@ class FluidProperty {
         delay: autoTransition?.delay || 0
       }
     }
+
+
+    if (name === 'grid-auto' || name === 'grid-auto-fit' || name === 'grid-auto-fill' || name === 'grid-template-columns')
+      {
+        this.minCol = getCachedComputedStyle (this.el, computedStyleCache).getPropertyValue ('--col-min').split (' ');
+      }
     //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
   }
 /*
@@ -565,7 +614,12 @@ class FluidProperty {
     
     this.lastValues = values;
     values = values.map((val, index) => {
-      return !isNumber(val) ? val :`${val}px`;
+      const minColV = this.minCol ? this.minCol[index >= this.minCol.length ? this.minCol.length - 1 : index] : null;
+      return !isNumber(val) ? val : 
+      minColV && minColV !== '0' ?
+      `min(${val}px, ${minColV})`
+      :
+      `${val}px`;
   });
 
   /*
@@ -633,7 +687,6 @@ class FluidProperty {
       }
       return;
     }
-   
     const strValue = this.toString(breakpointIndex, currentWidth);
 
     if(!strValue && this.isSet)
@@ -761,7 +814,8 @@ function getCachedBoundingClientRect (el, cache)
 
 function isInViewport(el, cache) {
   const rect = getCachedBoundingClientRect (el, cache);
-  
+  if (rect.width === 0 && rect.height === 0)
+    return false;
   const vwWidth = window.innerWidth;
   const vwHeight = window.innerHeight;
 
@@ -775,35 +829,7 @@ function isInViewport(el, cache) {
     rect.left  <= vwWidth + marginX
   );
 }
-let rootFontSizeEl;
-try {
-rootFontSizeEl = document.createElement("div");
-rootFontSizeEl.id = 'root-font-size';
-rootFontSizeEl.style.position = "absolute";
-rootFontSizeEl.style.visibility = "hidden";
-rootFontSizeEl.style.height = "1rem";
-document.body.appendChild(rootFontSizeEl);
 
-const observer = new ResizeObserver(() => {
-  const newRem = rootFontSizeEl.offsetHeight;
-  
-  rootFontSize = newRem;
-  rootFontSizeChanged.forEach (cb => cb());
-  // You can now update your px conversions
-});
-
-observer.observe(rootFontSizeEl);
-}catch(err){}
-let rootFontSize = 16;
-const rootFontSizeChanged = [];
-
-const unitToPx = {
-  in: 96,
-  cm: 96 / 2.54,
-  mm: 96 / 25.4,
-  pt: 96 / 72,
-  pc: 16, 
-};
 
 
 function getCharUnit(el, unit = 'ch') {

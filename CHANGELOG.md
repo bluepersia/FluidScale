@@ -1,6 +1,21 @@
 # Changelog
 
-## [0.0.1666-alpha]- 2025-07-04
+## [0.0.1666-alpha]- 2025-07-05
+
+### Added
+
+Engine now updates before repaint! Many glitches are fixed.
+
+### Changed
+
+Transitions are now disabled by default.
+See readme for transition settings.
+
+### Fixed
+
+Root font size should now be correct.
+
+## [0.0.1665-alpha]- 2025-07-04
 
 ### Added
 

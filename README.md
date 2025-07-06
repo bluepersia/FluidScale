@@ -119,6 +119,18 @@ Apply any of the math functions with just 1 value.
 e.g. `calc(4rem)`
 This tells FluidScale to stay at 4rem without scaling, until the next value is defined.
 
+## 🌀 Transitions
+
+You can enable transitions for all scaling. But layout shifts can cause some issues, so this is experimental:
+
+```js
+fluidScale({
+  autoTransition: { time: 300, easing: 'ease', delay: 0, onlyStart: true },
+});
+```
+
+`onlyStart` means: only transition from the default values to the fluid value, not all the time.
+
 ## 📐 Advanced
 
 If you want more precise control over the default style applied before FluidScale has loaded and applied:
