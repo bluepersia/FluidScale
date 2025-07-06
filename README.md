@@ -3,10 +3,13 @@
 **This tool has been tested with small tests. It's now being tested on realistic patterns.**
 **Thanks for your patience**
 
+[Small one-pager preview](https://e-skilled-page.vercel.app/)<br>
+
 **Latest update**:
 
+1. Engine now updates **before** repaint. Fixes glitches with layout changes, etc.
 1. Shorthand + Longhand mixed support (e.g. padding -> padding-left)
-2. Text value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
+1. Text value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
