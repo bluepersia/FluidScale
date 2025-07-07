@@ -116,18 +116,50 @@ then
 fluidScale.addElements(...parentAndChildren);
 ```
 
-## 🔒 Locking & Overriding
+## 📌 Special Cases
 
-Sometimes you'll want:
+### ⛔ Break
 
-1. A value to stay locked in place and not scale fluidly.
-2. Override a value across all breakpoints.
+Sometimes you'll want a value to stay locked in place and not scale fluidly.
 
 Apply any of the math functions with just 1 value.
-e.g. `calc(4rem)`
+e.g.
+
+```css
+calc(4rem)
+```
+
 This tells FluidScale to stay at 4rem without scaling, until the next value is defined.
-If no next value is defined, it will span across to the final breakpoint - this is useful for overrides.
-This is more confusing in theory than in practice. You'll know when you need it.
+
+### 🔁 Dynamic Styles (--dynamic: true)
+
+Watches for class/attribute changes on elements.
+Automatically re-evaluates which styles to interpolate.
+
+```css
+--dynamic: true;
+```
+
+### 🌈 Span (--span-start / --span-end)
+
+Apply a value across start -> end, then start interpolating from the end point.
+
+```css
+--span-start: all; /* or: font-size, padding-left */
+--span-end: all; /* or: font-size, padding-left */
+```
+
+### 💪 Force (--force)
+
+FluidScale applies inline styles.
+
+Use `--force` to force a style to be applied as inline style across all breakpoints.
+
+```css
+--force: all; /* or: font-size, padding-left */
+```
+
+🧠 This puts it at equal level with the interpolated content.
 
 ## 🌀 Transitions
 
