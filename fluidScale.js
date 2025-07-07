@@ -271,7 +271,8 @@ class FluidScale {
     els
       .filter((el) => !this.fluidProperties.find((fp) => fp.el === el))
       .forEach((el) => {
-        el.winner = {};
+        if(!el.state)
+          el.state = {};
 
         const classKey = getClassSelector(el);
 
@@ -576,20 +577,23 @@ class FluidProperty {
     this.propertyName = propertyName;
     //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
 
-    if (!this.el.winner[this.propertyName])
-      {
-        const state = {
-          order: -1,
-          value: null,
-          lastValue: null,
-          el: this.el,
-          propertyName
-        }
-        this.el.winner[this.propertyName] = state;
-        fs.fluidState.push (state);
-      }
+    let state = el.state[propertyName];
 
-      this.state = this.el.winner[this.propertyName];
+    if(!state)
+      state = el.state[propertyName] = {};
+
+    if (!state.isInit)
+    {
+      state.order =  -1;
+      state.value = null;
+      state.lastValue = null;
+      state.el = el;
+      state.propertyName = propertyName;
+      fs.fluidState.push (state);
+      state.isInit = true;
+    }
+
+      this.state = state;
   }
 /*
   getValUnit(val) {
@@ -2385,7 +2389,31 @@ function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   }
 }
 
-export { fluidEffect };
+function setInlineStyle (el, styles = {})
+{
+  if(!el.state)
+    el.state = {};
+  for(const [key, val] of Object.entries (styles))
+  {
+    const state = el.state[key] || {};
+    state.inlineActive = true;
+    el.state[key] = state;
+    el.style.setProperty (key, val);
+  }
+
+  return {undo: () => removeInlineStyle (el, Object.keys (styles))}
+}
+
+function removeInlineStyle (el, styles = [])
+{
+  for(const key of styles)
+  {
+    const state = el.state[key];
+    state.inlineActive = false;
+    el.style.removeProperty (key);
+  }
+}
+export { fluidEffect, setInlineStyle, removeInlineStyle };
 
 function getClassSelector(el) {
   return `${el.tagName.toLowerCase()}${el.className

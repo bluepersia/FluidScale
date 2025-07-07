@@ -161,6 +161,21 @@ Use `--force` to force a style to be applied as inline style across all breakpoi
 
 🧠 This puts it at equal level with the interpolated content.
 
+### ✍️ Setting Inline Styles (Manual Overrides)
+
+Use helper functions to manually override the engine with inline styles.
+
+```js
+import { setInlineStyle } from 'fluid-scale';
+
+const activeInline = setInlineStyle (el, {
+  'margin-top', '5rem',
+  'padding', '3rem'
+})
+
+activeInline.undo ();
+```
+
 ## 🌀 Transitions
 
 You can configure the transitions. These are the defaults:
