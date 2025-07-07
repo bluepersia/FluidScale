@@ -451,8 +451,12 @@ class FluidScale {
   
       const {lastValue, value, el, propertyName, fp} = state;
       
-      if (lastValue !== value)
+      const valueChanged = lastValue !== value || state.inlineActive === false;
+
+      if (valueChanged && !state.inlineActive)
       {
+        state.inlineActive = null;
+
         if (value === null)
         {
           el.style.removeProperty (propertyName);
@@ -469,7 +473,6 @@ class FluidScale {
           state.lastValue = value;
       }
       
-      state.lastOrder = state.order;
       state.order = -1;
       state.value = null;
       state.lastFp = fp;
@@ -802,7 +805,6 @@ class FluidProperty {
     {
       if(state.lastFp === this)
       {
-        state.order = state.lastOrder;
         state.fp = state.lastFp;
         state.value = state.lastValue;
       }
@@ -2389,19 +2391,51 @@ function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   }
 }
 
+
+
 function setInlineStyle (el, styles = {})
 {
   if(!el.state)
     el.state = {};
+
+const id = performance.now ();
   for(const [key, val] of Object.entries (styles))
   {
     const state = el.state[key] || {};
     state.inlineActive = true;
+
+    state.inlineQueue = state.inlineQueue || new Map ();
+    state.inlineQueue.set (id, val);
+
     el.state[key] = state;
     el.style.setProperty (key, val);
   }
 
-  return {undo: () => removeInlineStyle (el, Object.keys (styles))}
+  const inlineStyle = 
+  {
+    undo: () =>  { 
+      const keys = Object.keys (styles);
+      const toUndo = [];
+
+      for(const key of keys)
+      {
+        const state = el.state[key];
+
+        state.inlineQueue.delete (id);
+        if(state.inlineQueue.size > 0)
+        {
+          const inlineQueueEntries = [...map.entries()];
+          el.style.setProperty (key, inlineQueueEntries[inlineQueueEntries.length - 1]);
+        }
+        else 
+        {
+          toUndo.push (key);
+        }
+      }
+      removeInlineStyle (el, toUndo)
+    }
+  }
+  return  inlineStyle;
 }
 
 function removeInlineStyle (el, styles = [])
