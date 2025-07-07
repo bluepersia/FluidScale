@@ -1,6 +1,11 @@
 # Changelog
 
-## [0.0.1666-alpha]- 2025-07-05
+## [0.0.1668-alpha]- 2025-07-05
+
+1.Locking values now spans across to the last breakpoint, if no intercepting value is defined.
+2.Transitions enabled again, only from starting values.
+
+## [0.0.1667-alpha]- 2025-07-05
 
 ### Added
 

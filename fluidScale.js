@@ -99,6 +99,7 @@ const fluidPropertyNames = [
   'left',
   'right',
   'flex-basis',
+  'flex',
   'letter-spacing'
 ];
 const fluidPropertySync = {
@@ -136,7 +137,7 @@ let minBreakpoint;
 let maxBreakpoint;
 let usingPartials = true;
 let autoApply = true;
-let autoTransition = false;
+let autoTransition = {onlyStart:true};
 let minimizedMode = true;
 let enableComments = false;
 let observerPaused = false;
@@ -270,11 +271,13 @@ class FluidScale {
     els
       .filter((el) => !this.fluidProperties.find((fp) => fp.el === el))
       .forEach((el) => {
+        el.winner = {};
+
         const classKey = getClassSelector(el);
 
         if (this.classCache.has(classKey)) {
           const classCacheArr = this.classCache.get(classKey);
-          classCacheArr.forEach(({ variableName, arr, breakpoints }) => {
+          classCacheArr.forEach(({ variableName, arr, breakpoints, key }) => {
             const fluidProperty = FluidProperty.Parse(
               el,
               variableName,
@@ -283,7 +286,7 @@ class FluidScale {
               this.autoTransition,
               this.computedStyleCache,
               this.boundClientRectCache,
-              this
+              this,
             );
 
             this.fluidProperties.push(fluidProperty);
@@ -293,7 +296,9 @@ class FluidScale {
           this.classCache.set(classKey, classCacheArr);
 
           Object.keys(this.fluidVariableSelectors).forEach((key) => {
-            if (el.matches(key)) {
+            const test = key.includes ('/') ? key.split ('/')[0] : key;
+
+            if (el.matches(test)) {
               const rulesByBp = this.fluidVariableSelectors[key];
 
               const bpObj = [...rulesByBp.entries()];
@@ -319,7 +324,7 @@ class FluidScale {
                   this.autoTransition,
                   this.computedStyleCache,
                   this.boundClientRectCache,
-                  this
+                  this, 
                 );
                 this.fluidProperties.push(fluidProperty);
 
@@ -327,6 +332,7 @@ class FluidScale {
                   variableName,
                   arr,
                   breakpoints: this.breakpoints,
+                  key
                 });
               }
             }
@@ -417,14 +423,17 @@ class FluidScale {
     } else {
       for (let i = this.breakpoints.length - 1; i >= 0; i--) {
         if (currentWidth < this.breakpoints[i]) continue;
-
+      
         currentBpIndex = i;
         break;
       }
     }
-
+   
     this.currentBpIndex = currentBpIndex;
   }
+
+  fluidState = [];
+
   update() {
     this.calcCurrentWidth ();
 
@@ -435,8 +444,42 @@ class FluidScale {
       return true;
     });
 
+    this.fluidState = this.fluidState.filter (state => {
+
+      if(!state.el.isConnected) return false;
+  
+      const {lastValue, value, el, propertyName, fp} = state;
+      
+      if (lastValue !== value)
+      {
+        if (value === null)
+        {
+          el.style.removeProperty (propertyName);
+          if(this.autoTransition?.onlyStart)
+            el.style.setProperty ('transition', el.transitionStr);
+        }
+        else 
+        {
+          el.style.setProperty (propertyName, value);
+          if(this.autoTransition?.onlyStart)
+           setTimeout (() => el.style.setProperty ('transition', el.transitionBaseStr), this.autoTransition.time || 300);
+        }
+
+          state.lastValue = value;
+      }
+      
+      state.lastOrder = state.order;
+      state.order = -1;
+      state.value = null;
+      state.lastFp = fp;
+      state.lastDynamicChange = state.dynamicChange
+      state.dynamicChange = null
+      return true;
+     })
+
     this.computedStyleCache.clear();
     this.boundClientRectCache.clear ();
+    this.lastWindowWidth = this.currentWidth;
   }
 
   destroy() {
@@ -463,7 +506,7 @@ class FluidProperty {
     this.breakpoints = breakpoints;
     this.computedStyleCache = computedStyleCache;
     this.boundClientRectCache = boundClientRectCache;
-
+    this.active = true;
    
     if(forceGPU)
       constructGPUVersion (this);
@@ -479,13 +522,74 @@ class FluidProperty {
         delay: autoTransition?.delay || 0
       }
     }
-
-
-    if (name === 'grid-auto' || name === 'grid-auto-fit' || name === 'grid-auto-fill' || name === 'grid-template-columns')
+    if (valuesByBreakpoint[0]?.isPseudo)
       {
-        this.minCol = getCachedComputedStyle (this.el, computedStyleCache).getPropertyValue ('--col-min').split (' ');
+        this.isPseudo = true;
+        this.pseudoSel = valuesByBreakpoint[0].selector;
       }
+      else 
+    if (valuesByBreakpoint[0]?.dynamic)
+    {
+      const observedAttribs = ['class', ...valuesByBreakpoint[0].attribs || []];
+      const selector = valuesByBreakpoint[0].dynamic;
+      this.active = el.matches (selector);
+      this.observer = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+          if (mutation.type === 'attributes' && observedAttribs.includes (mutation.attributeName)) {
+           this.active = el.matches (selector);
+          }
+        }
+      });
+
+      this.observer.observe(el, {
+        attributes: true,
+        attributeFilter: observedAttribs
+      });
+    } 
+
+   
+      let propertyName;
+      if (autoApply) {
+        propertyName = fluidPropertySync[name] || name;
+  
+        if (name === 'grid-auto' || name === 'grid-auto-fit')
+        {
+          propertyName = 'grid-template-columns';
+        }
+        else if (name === 'grid-auto-fill')
+        {
+          propertyName = 'grid-template-columns';
+        }
+        else if (name === 'grid-auto-rows' || name === 'grid-auto-fit-rows')
+        {
+          propertyName = 'grid-template-rows';
+        }
+          else if (name === 'grid-auto-fill')
+          {
+            propertyName = 'grid-template-rows';
+          }
+      }
+      else {
+      propertyName = `--fluid-${this.name}-value`;
+      }
+
+    this.propertyName = propertyName;
     //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
+
+    if (!this.el.winner[this.propertyName])
+      {
+        const state = {
+          order: -1,
+          value: null,
+          lastValue: null,
+          el: this.el,
+          propertyName
+        }
+        this.el.winner[this.propertyName] = state;
+        fs.fluidState.push (state);
+      }
+
+      this.state = this.el.winner[this.propertyName];
   }
 /*
   getValUnit(val) {
@@ -505,6 +609,12 @@ class FluidProperty {
   valToNumber(val) {
     return Number(val.replace('rem', '').replace('em', '').replace('%', ''));
   }*/
+
+  destroy ()
+  {
+    if (this.observer)
+      this.observer.disconnect ();
+  }
   getValues(breakpointIndex, currentWidth) {
     
     if (breakpointIndex >= this.breakpoints.length - 1)
@@ -516,6 +626,8 @@ class FluidProperty {
     let breakpointValues = this.valuesByBreakpoint[breakpointIndex];
 
     if (!breakpointValues || (breakpointValues.minValues.some (v => typeof v === 'string') || breakpointValues.maxValues.some (v => typeof v === 'string') )) return [];
+
+    this.order = breakpointValues.order;
 
     function calcProgress(breakpointMin, breakpointMax) {
       return Math.min(
@@ -614,12 +726,7 @@ class FluidProperty {
     
     this.lastValues = values;
     values = values.map((val, index) => {
-      const minColV = this.minCol ? this.minCol[index >= this.minCol.length ? this.minCol.length - 1 : index] : null;
-      return !isNumber(val) ? val : 
-      minColV && minColV !== '0' ?
-      `min(${val}px, ${minColV})`
-      :
-      `${val}px`;
+      return !isNumber(val) ? val : `${val}px`;
   });
 
   /*
@@ -660,7 +767,7 @@ class FluidProperty {
         breakpoints,
         computedStyleCache,
         clientBoundRectCache,
-        fs
+        fs,
       );
     } else {
       return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, clientBoundRectCache, fs);
@@ -671,86 +778,67 @@ class FluidProperty {
     return '';
   }
 
+  lastActive = null
+  lastPseudoMatch = null
   update(breakpointIndex, currentWidth) {
-    
-    if(this.lastWindowWidthApplied === currentWidth && this.isSet)
-      return;
+    const state = this.state;
 
-    if(!isInViewport (this.el, this.boundClientRectCache))
+    const isActive = this.active;
+    const isPseudoMatch = this.isPseudo ? this.el.matches (this.pseudoSel) : true;
+
+    state.dynamicChange = isActive !== this.lastActive || isPseudoMatch !== this.lastPseudoMatch;
+    
+    this.lastActive = isActive;
+    this.lastPseudoMatch = isPseudoMatch;
+
+    if(!isActive || !isPseudoMatch)
+      return;
+    
+    if(this.fs.lastWindowWidth === currentWidth && !state.lastDynamicChange)
     {
-      if(this.isSet)
+      if(state.lastFp === this)
       {
-        this.el.style.removeProperty (this.isSet);
-        if(autoTransition?.onlyStart)
-          this.el.style.setProperty ('transition', this.el.transitionStr);
-        this.isSet = '';
+        state.order = state.lastOrder;
+        state.fp = state.lastFp;
+        state.value = state.lastValue;
       }
       return;
     }
-    const strValue = this.toString(breakpointIndex, currentWidth);
-
-    if(!strValue && this.isSet)
-    {
-      this.el.style.removeProperty (this.isSet);
-      this.isSet = '';
+    
+    if(!isInViewport (this.el, this.boundClientRectCache))
       return;
-    }
-
-    if(!this.isSet && autoTransition?.onlyStart)
-    {
-      setTimeout (() => this.el.style.setProperty ('transition', this.el.transitionBaseStr), autoTransition?.time || 300);
-    }
-    this.lastWindowWidthApplied = currentWidth;
+    
+    const strValue = this.toString(breakpointIndex, currentWidth);
+   
+    if(!strValue)
+      return;
 
    
-
+    state.fp = this;
     if (autoApply) {
-      let propertyName = fluidPropertySync[this.name] || this.name;
 
       if (this.name === 'grid-auto' || this.name === 'grid-auto-fit')
       {
-        this.isSet = 'grid-template-columns'
-        this.el.style.setProperty(
-          this.isSet,
-          `repeat(auto-fit, ${strValue})`
-        );
+        state.value =`repeat(auto-fit, ${strValue})`
       }
       else if (this.name === 'grid-auto-fill')
       {
-        this.isSet = 'grid-template-columns'
-        this.el.style.setProperty(
-          this.isSet,
-          `repeat(auto-fill, ${strValue})`
-        )
+        state.value =`repeat(auto-fill, ${strValue})`
       }
       else if (this.name === 'grid-auto-rows' || this.name === 'grid-auto-fit-rows')
       {
-        this.isSet = 'grid-template-rows';
-          this.el.style.setProperty(
-            this.isSet,
-            `repeat(auto-fit, ${strValue})`
-          );
-        }
+        state.value =`repeat(auto-fit, ${strValue})`;
+      }
         else if (this.name === 'grid-auto-fill')
         {
-          this.isSet = 'grid-template-rows';
-          this.el.style.setProperty(
-            this.isSet,
-            `repeat(auto-fill, ${strValue})`
-          )
+        state.value =`repeat(auto-fill, ${strValue})`;
         }
       else { 
-        this.isSet = propertyName;
-        this.el.style.setProperty(propertyName, strValue);
+        state.value = strValue;
       }
-
-
-      
-      
       return;
     }
-    this.isSet = `--fluid-${this.name}-value`;
-    this.el.style.setProperty(this.isSet, strValue);
+    state.value = strValue;
   }
 }
 
@@ -1271,6 +1359,15 @@ const borderMap = new Map([
   }]
 ])
 
+const flexMap = new Map ([
+  [1, {
+    'basis': 0
+  }],
+  [3, {
+    'basis': 2
+  }]
+])
+
 
 const explicitValues = {
   'padding-left': [clockMap, 'padding', 'left'],
@@ -1317,6 +1414,8 @@ const explicitValues = {
   'border-top-right-radius': [borderMap, 'border-radius', 'top-right'],
   'border-bottom-right-radius': [borderMap, 'border-radius', 'bottom-right'],
   'border-bottom-left-radius': [borderMap, 'border-radius', 'bottom-left'],
+
+  'flex-basis': [flexMap, 'flex', 'basis']
 }
 
 const shorthandValues = 
@@ -1374,7 +1473,8 @@ const shorthandValues =
     'border-top-right-radius': 'top-right',
     'border-bottom-right-radius': 'bottom-right',
     'border-bottom-left-radius': 'bottom-left'
-  }]
+  }],
+  'flex': [flexMap, {'flex-basis': 'basis'}]
 }
 
 
@@ -1459,9 +1559,8 @@ function parseUnit (val, property)
   return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
 }
 
-function extractExplicitValue (rule, variableName)
+function extractExplicitValue (rule, explicitData)
 {
-  const explicitData = explicitValues[variableName];
   if(explicitData)
   {
     const [symmetryMap, shorthand, posId] = explicitData;
@@ -1512,15 +1611,52 @@ function extractBorderWidthFromBorderShorthand(value) {
 
 let CSSRuleRef;
 let mediaBps;
+let spans = {};
+
+function assignOrderIndex(rules, state = {currOrder:0}) {
+ 
+  for(const rule of rules)
+  {
+    if (rule.type === CSSRuleRef.MEDIA_RULE)
+      assignOrderIndex (rule.cssRules, state);
+    else 
+      rule.order = state.currOrder++;
+  }
+}
+function processComments(rule) {
+  if (!enableComments || rule.comments) return;
+
+  let comments;
+  const rawRuleText = rule.cssText;
+  const matches = rawRuleText.match(
+    /\/\*\s*fluid-([a-z-]+):\s*([^\*]+?)\s*\*\//gi
+  );
+  if (matches) {
+    comments = {};
+
+    for (const match of matches) {
+      const [, prop, value] = match.match(
+        /fluid-([a-z-]+):\s*([^\*]+?)\s*\*\//i
+      );
+      comments[prop] = value.trim();
+    }
+  }
+  rule.comments = comments;
+}
+
 function parseRules(rules, bpIndex = 0, bp = 0) {
-  
+
   if(!CSSRuleRef)
     CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule :  findCSSRuleConstructor (rules);
   
 
   if (bpIndex == 0) {
+    const rulesArr = [...rules];
+
+    assignOrderIndex (rulesArr);
     
-    mediaBps = [...rules]
+
+    mediaBps = rulesArr
       .filter(
         (rule) =>
           rule.type === CSSRuleRef.MEDIA_RULE &&
@@ -1566,27 +1702,11 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
   for (const rule of rules) {
     
     if (rule.type === CSSRuleRef.STYLE_RULE) {
-      function processComments(rule) {
-        if (!enableComments || rule.comments) return;
 
-        let comments;
-        const rawRuleText = rule.cssText;
-        const matches = rawRuleText.match(
-          /\/\*\s*fluid-([a-z-]+):\s*([^\*]+?)\s*\*\//gi
-        );
-        if (matches) {
-          comments = {};
-
-          for (const match of matches) {
-            const [, prop, value] = match.match(
-              /fluid-([a-z-]+):\s*([^\*]+?)\s*\*\//i
-            );
-            comments[prop] = value.trim();
-          }
-        }
-        rule.comments = comments;
-      }
-
+      let force;
+      let spanStart;
+      let spanEnd;
+     
       processComments(rule);
       let nextBp = rule.nextBp;
 
@@ -1598,281 +1718,359 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           : bpIndex + 1
         : null;
 
-      let bps = fluidVariableSelectors[rule.selectorText];
 
-      for (const fluidPropertyName of fluidPropertyNames) {
+      const selectors = rule.selectorText.split (',').map (s => s.trim());
+      for (const selector of selectors)
+      {
+        let bps = fluidVariableSelectors[selector];
 
-        let variableName =  autoApply
-          ? fluidPropertyName.replace('-min', '')
-          : `${fluidPropertyName}`;
+        for (const fluidPropertyName of fluidPropertyNames) {
 
-        if(autoApply && shorthandValues[variableName])
-          continue;
+          let variableName =  autoApply
+            ? fluidPropertyName.replace('-min', '')
+            : `${fluidPropertyName}`;
 
-        
-        let value;
+          if(autoApply && shorthandValues[variableName])
+            continue;
 
-        if (bps && !minimizedMode) {
-          const arr = [...bps.values()]
-          const lastBp = arr[arr.length - 1];
-          if (lastBp) {
-            const variableObj = lastBp[variableName];
-            if (variableObj) value = variableObj.maxValues.join(' ');
+          let value;
+
+          if (bps && !minimizedMode) {
+            const arr = [...bps.values()]
+            const lastBp = arr[arr.length - 1];
+            if (lastBp) {
+              const variableObj = lastBp[variableName];
+              if (variableObj) value = variableObj.maxValues.join(' ');
+            }
           }
-        }
 
-        if (!value && !minimizedMode)
-        {
-          const arr = prevValues[rule.selectorText]?.[variableName];
-          value = arr ? arr[arr.length -1] : null;
-        }
-        if (!value) {
-          if (rule.comments?.hasOwnProperty(variableName))
-            value = rule.comments[variableName];
-          else {
-            value = rule.style
-              .getPropertyValue(
-                autoApply && !variableName.startsWith('grid-auto') ? variableName : `--fluid-${variableName}`
-              )
-              .trim();
+          const explicitData = explicitValues[variableName];
+          const shorthand = explicitData?[1] : null;
+         spanEnd = spanEnd || rule.style.getPropertyValue ('--span-end')?.split (',').map (s => s.trim()) || [];
+          if (!value && (!minimizedMode || spanEnd.includes ('all') || spanEnd.includes (variableName))|| spanEnd.includes (shorthand))
+          {
+            value = prevValues[selector]?.[variableName];
           }
-        }
+          if (!value) {
+            if (rule.comments?.hasOwnProperty(variableName))
+              value = rule.comments[variableName];
+            else {
+              value = rule.style
+                .getPropertyValue(
+                  autoApply && !variableName.startsWith('grid-auto') ? variableName : `--fluid-${variableName}`
+                )
+                .trim();
+            }
+          }
 
+          
+          if (!value && autoApply)
+            value = extractExplicitValue (rule, explicitData);
+          
+
+          if (!value || value.includes ('var(')) continue;
+
+          
+          const spanValue = value;
+
+          let gridTemplateVarName;
+          if (value.includes ('auto-') && !value.includes ('--grid-auto'))
+          {
+            gridTemplateVarName = `${value.includes('-fit') ? 'grid-auto-fit' : 'grid-auto-fill'}`
+            if(variableName.includes ('rows'))
+              gridTemplateVarName += '-rows';
+            value = parseGridTemplateColumns (value);
+          }
+          else 
+          {
+            value = parseRepeat (value);
+          }
+
+          spanStart = spanStart || rule.style.getPropertyValue ('--span-start')?.split(',').map (s => s.trim()) || [];
+          if (!minimizedMode || spanStart.includes ('all') || spanStart.includes (variableName) || spanStart.includes (shorthand)) {
+            if (!prevValues[selector])
+              prevValues[selector] = {};
+
+            const prevValuesForRule = prevValues[selector];
+
+            prevValuesForRule[variableName] = value;
+          }
+          const allCalcsParsed = parseAllCalcs (value);
+          let minValues;
+          let maxValues;
+          let isCombo = false;
+          if (autoApply || fluidPropertyName.includes('-min')) {
         
-        if (!value && autoApply)
-          value = extractExplicitValue (rule, variableName);
-        
+            minValues = allCalcsParsed;
+            let maxVal;
+            if (autoApply && minimizedMode) {
+          
+              // Search future breakpoints for the same selector and variable
+              const startIndex = mediaBps.findIndex(
+                ({ width }) => width === breakpoints[bpIndex + 1]
+              );
+              if (startIndex === -1) continue;
 
-        if (!value || value.includes ('var(')) continue;
-
-        
-      
-
-        let gridTemplateVarName;
-        if (value.includes ('auto-') && !value.includes ('--grid-auto'))
-        {
-          gridTemplateVarName = `${value.includes('-fit') ? 'grid-auto-fit' : 'grid-auto-fill'}`
-          if(variableName.includes ('rows'))
-            gridTemplateVarName += '-rows';
-          value = parseGridTemplateColumns (value);
-        }
-        else 
-        {
-          value = parseRepeat (value);
-        }
-
-        if (!minimizedMode) {
-          if (!prevValues[rule.selectorText])
-            prevValues[rule.selectorText] = {};
-
-          const prevValuesForRule = prevValues[rule.selectorText];
-
-          if (!prevValuesForRule[variableName])
-            prevValuesForRule[variableName] = [];
-
-          const prevValuesForVar = prevValuesForRule[variableName];
-          prevValuesForVar.push(value);
-        }
-        const allCalcsParsed = parseAllCalcs (value);
-        let minValues;
-        let maxValues;
-        let isCombo = false;
-        if (autoApply || fluidPropertyName.includes('-min')) {
-       
-          minValues = allCalcsParsed;
-          let maxVal;
-          if (autoApply && minimizedMode) {
-         
-            // Search future breakpoints for the same selector and variable
-            const startIndex = mediaBps.findIndex(
-              ({ width }) => width === breakpoints[bpIndex + 1]
-            );
-            if (startIndex === -1) continue;
-
-            for (let i = startIndex; i < mediaBps.length; i++) {
-              const { cssRules, width } = mediaBps[i];
-              const futureVal = findMap(cssRules, r =>
-                {
-                  if(r.type === CSSRuleRef.STYLE_RULE &&
-                    r.selectorText === rule.selectorText)
+              for (let i = startIndex; i < mediaBps.length; i++) {
+                const { cssRules, width } = mediaBps[i];
+                const futureVal = findMap(cssRules, r =>
                   {
-                    let futureV = r.style.getPropertyValue(variableName);
-
-                    if(!futureV)
-                      futureV = extractExplicitValue (r, variableName);
-
-
-                    if(futureV)
-                      return futureV;
-
-                    return;
-                    const explicitData = explicitValues[variableName];
-                    const shorthandData = shorthandValues[variableName]
-                    if(explicitData || !shorthandData)
+                    if(r.type === CSSRuleRef.STYLE_RULE &&
+                      r.selectorText.split(',').map(s => s.trim()).includes (selector))
                     {
                       let futureV = r.style.getPropertyValue(variableName);
-                      
+
+                      if(!futureV)
+                        futureV = extractExplicitValue (r, explicitData);
+
+                      if (!futureV)
+                      {
+                        const spanEnd = r.style.getPropertyValue ('--span-end')?.split(',').map (s => s.trim()) || [];
+                        if (spanEnd.includes ('all') || spanEnd.includes (variableName) || spanEnd.includes (shorthand))
+                          return spanValue;
+                      }
+
                       if(futureV)
                         return futureV;
 
-                      if(false && explicitData)
+                      return;
+                      //const explicitData = explicitValues[variableName];
+                      const shorthandData = shorthandValues[variableName]
+                      if(explicitData || !shorthandData)
                       {
-                        futureV = r.style.getPropertyValue (explicitData[1]);
-                        if (futureV)
+                        let futureV = r.style.getPropertyValue(variableName);
+                        
+                        if(futureV)
+                          return futureV;
+
+                        if(false && explicitData)
                         {
-                          const vSpl = splitByOuterSpaces (futureV);
-                          const symmetryMap = explicitData[0];
+                          futureV = r.style.getPropertyValue (explicitData[1]);
+                          if (futureV)
+                          {
+                            const vSpl = splitByOuterSpaces (futureV);
+                            const symmetryMap = explicitData[0];
+                            
+                            const shorthandLength = vSpl.length;
+                            const symmetryDir = explicitData[2];
+                            const shorthandIndex = symmetryMap.get (shorthandLength)[symmetryDir];
+                            return vSpl[shorthandIndex];
+                          }
+                        }
+                        else if (false && shorthandData)
+                        {
+                          const symmetryMap = shorthandData[0];
+                          const symmetry4 = symmetryMap.get(4);
+                          const dirInfo = shorthandData[1];
+
+                          const futureExpl = new Array (4);
                           
-                          const shorthandLength = vSpl.length;
-                          const symmetryDir = explicitData[2];
-                          const shorthandIndex = symmetryMap.get (shorthandLength)[symmetryDir];
-                          return vSpl[shorthandIndex];
+                          for(const [dir, index] of Object.entries (symmetryMap.get(allCalcsParsed.length)))
+                            futureExpl[symmetry4[dir]] = allCalcsParsed[index];
+                          
+                          for(const [dirProp, dir] of Object.entries (dirInfo))
+                          {
+                            const index = symmetry4[dir];
+                            futureExpl[index] = r.style.getPropertyValue (dirProp);
+                          }
+
+                          const futureShort = splitByOuterSpaces (r.style.getPropertyValue (variableName));
+
+                          for(const [dir, index] of Object.entries (symmetryMap.get(futureShort.length)))
+                          {
+                            const dir4 = symmetry4[dir];
+                            if (!futureExpl[dir4])
+                              futureExpl[dir4] = futureShort[index];
+                          }
+
+                          return futureExpl.join (' ');
                         }
-                      }
-                      else if (false && shorthandData)
-                      {
-                        const symmetryMap = shorthandData[0];
-                        const symmetry4 = symmetryMap.get(4);
-                        const dirInfo = shorthandData[1];
-
-                        const futureExpl = new Array (4);
-                        
-                        for(const [dir, index] of Object.entries (symmetryMap.get(allCalcsParsed.length)))
-                          futureExpl[symmetry4[dir]] = allCalcsParsed[index];
-                        
-                        for(const [dirProp, dir] of Object.entries (dirInfo))
-                        {
-                          const index = symmetry4[dir];
-                          futureExpl[index] = r.style.getPropertyValue (dirProp);
-                        }
-
-                        const futureShort = splitByOuterSpaces (r.style.getPropertyValue (variableName));
-
-                        for(const [dir, index] of Object.entries (symmetryMap.get(futureShort.length)))
-                        {
-                          const dir4 = symmetry4[dir];
-                          if (!futureExpl[dir4])
-                            futureExpl[dir4] = futureShort[index];
-                        }
-
-                        return futureExpl.join (' ');
                       }
                     }
+                  })
+                  /*;[...cssRules].find((r) => {
+                  //processComments(r);
+                  return (
+                    //r.comments?.hasOwnProperty(variableName) ||
+                    (r.type === CSSRuleRef.STYLE_RULE &&
+                      r.selectorText === selector &&
+                      r.style.getPropertyValue(variableName))
+                  );
+                });*/
+
+                if (futureVal) {
+                  maxVal = futureVal.trim();
+
+                  if (gridTemplateVarName)
+                  {
+                    maxVal = parseGridTemplateColumns (maxVal);
+                    variableName = gridTemplateVarName;
                   }
-                })
-                /*;[...cssRules].find((r) => {
-                //processComments(r);
-                return (
-                  //r.comments?.hasOwnProperty(variableName) ||
-                  (r.type === CSSRuleRef.STYLE_RULE &&
-                    r.selectorText === rule.selectorText &&
-                    r.style.getPropertyValue(variableName))
-                );
-              });*/
-
-              if (futureVal) {
-                maxVal = futureVal.trim();
-
-                if (gridTemplateVarName)
-                {
-                  maxVal = parseGridTemplateColumns (maxVal);
-                  variableName = gridTemplateVarName;
+                  else 
+                    maxVal = parseRepeat (maxVal);
+                  
+                  nextBp = width;
+                  nextBpIndex = breakpoints.indexOf(width);
+                  break;
                 }
-                else 
-                  maxVal = parseRepeat (maxVal);
-                 
-                nextBp = width;
-                nextBpIndex = breakpoints.indexOf(width);
-                break;
               }
             }
-          }
-          if (!maxVal) {
-            const maxField = autoApply
-              ? rule.style.getPropertyValue(`--${variableName}-max`)
-              : fluidPropertyName.replace('-min', '-max');
-            maxVal = rule.style.getPropertyValue(`--fluid-${maxField}`).trim();
+          
+            if (!maxVal) {
+              const maxField = autoApply
+                ? rule.style.getPropertyValue(`--${variableName}-max`)
+                : fluidPropertyName.replace('-min', '-max');
+              maxVal = rule.style.getPropertyValue(`--fluid-${maxField}`).trim();
 
-            if (!maxVal) continue;
-          }
+              if (!maxVal) {
+                force = force || rule.style.getPropertyValue ('--force')?.split(',').map(s => s.trim()) || [];
 
-          maxValues = parseAllCalcs (maxVal);   
-          if (maxValues.length !== minValues.length)
-          {
-            
-            if (clockSymmetry.includes (variableName))
+                if (force.includes ('all') || force.includes (variableName) || force.includes (shorthand))
+                {
+                  nextBpIndex = breakpoints.length - 1;
+                  nextBp = breakpoints[nextBpIndex];
+                  maxValues = minValues;
+                }
+                else 
+                {
+                  continue;
+                }
+              }
+            }
+
+            if (!maxValues)
             {
-              const eq = equalize (minValues, maxValues, clockMap);
-              minValues = eq[0];
-              maxValues = eq[1];
-            } else if (variableName === 'border-radius')
+              maxValues = parseAllCalcs (maxVal);   
+              if (maxValues.length !== minValues.length)
+              {
+                
+                if (clockSymmetry.includes (variableName))
+                {
+                  const eq = equalize (minValues, maxValues, clockMap);
+                  minValues = eq[0];
+                  maxValues = eq[1];
+                } else if (variableName === 'border-radius')
+                {
+                  if(minValues.includes('/'))
+                    continue;
+                  
+                  const eq = equalize (minValues, maxValues, borderMap);
+                  minValues = eq[0];
+                  maxValues = eq[1];
+                }
+              }
+          }
+            isCombo = true;
+          } else {
+            const valueArr = allCalcsParsed;
+            const isOne = valueArr.length <= 1;
+            let first = valueArr[0];
+            if (isOne)
             {
-              if(minValues.includes('/'))
-                continue;
+              if(Array.isArray (first) && first[0] === 'break')
+                first = first[1];
               
-              const eq = equalize (minValues, maxValues, borderMap);
-              minValues = eq[0];
-              maxValues = eq[1];
+              minValues = [first];
+              maxValues = [first];
+            }
+            else 
+            {
+              minValues = [valueArr[0]];
+              maxValues = [valueArr[1]];
             }
           }
-          isCombo = true;
-        } else {
-          const valueArr = allCalcsParsed;
-          minValues = [valueArr[0]];
-          maxValues = [valueArr[1]];
-        }
-        let transition;
-        if (bpIndex === 0 && autoTransition)
-          transition = rule.style.getPropertyValue('transition');
+          let transition;
+          if (bpIndex === 0 && autoTransition)
+            transition = rule.style.getPropertyValue('transition');
 
-        //const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
-        const minUnits = minValues.map (v => parseUnit(v, fluidPropertyName));
-        const maxUnits = maxValues.map(v => parseUnit (v, fluidPropertyName));
-        //let unitValues = unitsBase.map((val) => parseUnit (val));
+          //const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
+          const minUnits = minValues.map (v => parseUnit(v, fluidPropertyName));
+          const maxUnits = maxValues.map(v => parseUnit (v, fluidPropertyName));
+          //let unitValues = unitsBase.map((val) => parseUnit (val));
 
-        minValues = minValues.map((val) =>
-          parseSingleValFull (val)
-        );
-        maxValues = maxValues.map((val) =>
-          parseSingleValFull(val)
-        );
+          minValues = minValues.map((val) =>
+            parseSingleValFull (val)
+          );
+          maxValues = maxValues.map((val) =>
+            parseSingleValFull(val)
+          );
 
-        /*
-        const rangeValues = minValues.map(
-          (minVal, index) => { 
-            const maxVal = maxValues[index] || maxValues[maxValues.length - 1];
-            return isStrVal (minVal) || isStrVal(maxVal) ? null : maxVal - minVal
+          /*
+          const rangeValues = minValues.map(
+            (minVal, index) => { 
+              const maxVal = maxValues[index] || maxValues[maxValues.length - 1];
+              return isStrVal (minVal) || isStrVal(maxVal) ? null : maxVal - minVal
+            }
+
+          if (unitValues.some(unit => unit === null))
+          {
+            const root = unitValues.find(unit => unit !== null) || 'rem';
+            unitValues = unitValues.map ((u) => u || root);
+          }
+          );*/
+
+          let bpApply =  bp;
+          let bpIndexApply = bpIndex;
+
+
+          let dynamic;
+          let attribs = [];
+          let root = selector;
+          let isPseudo;
+          if (selector.includes (':'))
+          {
+            isPseudo = true;
+            root = stripToBaseSelector (selector);
+          }
+          else 
+          {
+             dynamic = rule.style.getPropertyValue ('--dynamic') === 'true';
+
+            if (dynamic)
+            {
+              if (selector.includes ('['))
+              {
+                const attrMatches = selector.match(/\[(.+?)(?:[~|^$*]?=.+?)?\]/g) || [];
+                attribs = attrMatches.map(attr => attr.replace(/[\[\]=].*$/, ''));
+              }
+              root = stripAttributeSelectors (stripClassModifiers (selector));
+            }
           }
 
-        if (unitValues.some(unit => unit === null))
-        {
-          const root = unitValues.find(unit => unit !== null) || 'rem';
-          unitValues = unitValues.map ((u) => u || root);
-        }
-        );*/
-        if (!bps) fluidVariableSelectors[rule.selectorText] = bps = new Map();
+          if (root !== selector)
+            root = `${root}/${selector}`;
 
-        let bpMap;
-        if (bps.has(bp)) bpMap = bps.get(bp);
-        else {
-          bpMap = {};
-          bps.set(bp, bpMap);
+          if (!bps) fluidVariableSelectors[root] = bps = new Map();
+
+          let bpMap;
+          if (bps.has(bp)) bpMap = bps.get(bp);
+          else {
+            bpMap = {};
+            bps.set(bp, bpMap);
+          }
+          
+          
+          const variableObj = (bpMap[variableName] = {
+            selector,
+            minValues,
+            maxValues,
+            minUnits,
+            maxUnits,
+            variableName,
+            order: rule.order
+          });
+          
+          
+          if (isCombo) variableObj.isCombo = true;
+          if (bpIndexApply !== -1) variableObj.bpIndex = bpIndexApply;
+          if (bpApply) variableObj.bp = bpApply;
+          if (nextBp) variableObj.nextBp = nextBp;
+          if (nextBpIndex) variableObj.nextBpIndex = nextBpIndex;
+          if (transition) variableObj.transition = transition;
+          if (dynamic) variableObj.dynamic = selector;
+          if (attribs.length > 0) variableObj.attribs = attribs;
+          if (isPseudo) variableObj.isPseudo = true;
         }
-        const variableObj = (bpMap[variableName] = {
-          selector: rule.selectorText,
-          minValues,
-          maxValues,
-          minUnits,
-          maxUnits,
-          variableName,
-        });
-        
-        if (isCombo) variableObj.isCombo = true;
-        if (bpIndex !== -1) variableObj.bpIndex = bpIndex;
-        if (bp) variableObj.bp = bp;
-        if (nextBp) variableObj.nextBp = nextBp;
-        if (nextBpIndex) variableObj.nextBpIndex = nextBpIndex;
-        if (transition) variableObj.transition = transition;
       }
     }
   }
@@ -1890,6 +2088,30 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
     }
   }
 }
+
+function stripPseudoSelectors(selector) {
+  return selector.replace(/::?[a-zA-Z0-9\-\_()]+/g, '');
+}
+
+function stripClassModifiers(selector) {
+  return selector.replace(/\.[\w-]+/g, (cls) => {
+    const base = cls.split(/--/)[0]; // Keep only base part
+    return base;
+  });
+}
+
+function stripAttributeSelectors(selector) {
+  return selector.replace(/\[[^\]]+\]/g, '');
+}
+
+function stripToBaseSelector(selector) {
+  return stripAttributeSelectors(
+    stripClassModifiers(
+      stripPseudoSelectors(selector)
+    )
+  ).trim();
+}
+
 
 function getJSON() {
   return {
@@ -2099,6 +2321,34 @@ function findMap(array, mapFn) {
   }
   return undefined;
 }
+
+function containsDynamicPseudo(selector) {
+  const dynamicPseudos = [
+    ':hover',
+    ':focus',
+    ':active',
+    ':visited',
+    ':focus-visible',
+    ':focus-within',
+    ':target',
+    ':checked',
+    ':indeterminate',
+    ':enabled',
+    ':disabled',
+    ':default',
+    ':valid',
+    ':invalid',
+    ':user-invalid',
+    ':required',
+    ':optional',
+    ':read-only',
+    ':read-write',
+    ':placeholder-shown'
+  ];
+
+  return dynamicPseudos.some(pseudo => selector.includes(pseudo));
+}
+
 
 function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   let fs = fluidScale;

@@ -8,8 +8,9 @@
 **Latest update**:
 
 1. Engine now updates **before** repaint. Fixes glitches with layout changes, etc.
-1. Shorthand + Longhand mixed support (e.g. padding -> padding-left)
-1. Text value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
+2. Locking values causes them to span across to the furthest breakpoint possible. Read more below.
+3. Shorthand + Longhand mixed support (e.g. padding -> padding-left)
+4. Text value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
@@ -115,16 +116,22 @@ then
 fluidScale.addElements(...parentAndChildren);
 ```
 
-## ⛔ Breaking
+## 🔒 Locking & Overriding
 
-Sometimes you'll want a value to stay locked in place and not scale fluidly.
+Sometimes you'll want:
+
+1. A value to stay locked in place and not scale fluidly.
+2. Override a value across all breakpoints.
+
 Apply any of the math functions with just 1 value.
 e.g. `calc(4rem)`
 This tells FluidScale to stay at 4rem without scaling, until the next value is defined.
+If no next value is defined, it will span across to the final breakpoint - this is useful for overrides.
+This is more confusing in theory than in practice. You'll know when you need it.
 
 ## 🌀 Transitions
 
-You can enable transitions for all scaling. But layout shifts can cause some issues, so this is experimental:
+You can configure the transitions. These are the defaults:
 
 ```js
 fluidScale({
