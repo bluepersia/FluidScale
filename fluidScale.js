@@ -137,6 +137,7 @@ let minBreakpoint;
 let maxBreakpoint;
 let usingPartials = true;
 let autoApply = true;
+let checkUsage = false;
 let autoTransition = {onlyStart:true};
 let minimizedMode = true;
 let enableComments = false;
@@ -172,47 +173,13 @@ class FluidScale {
   async init(
     elList,
     bps,
-    { minBp, maxBp, checkUsage = false, json, autoTransition = true }
+    { minBp, maxBp, json, autoTransition = true }
   ) {
     if (json) await loadJSON(json);
 
     let wasParsed = stylesParsed;
 
-    if (!stylesParsed && (!json || jsonLoaded !==  json)) {
-
-      // run once on load
-      let sheets = checkUsage
-        ? (await waitForStylesheets()).filter((sheet) => {
-            try {
-              const ownerNode = sheet.ownerNode;
-              if (!ownerNode) return false;
-
-              if (ownerNode.tagName === 'STYLE') {
-                const text = ownerNode.textContent.trimStart();
-                return text.startsWith('/*enable-fluid');
-              } else if (ownerNode.tagName === 'LINK') {
-                return 'fluid' in node.dataset;
-              }
-            } catch {
-              return false;
-            }
-          })
-        : document.styleSheets;
-
-        sheets = Array.from (sheets).filter (sheet => {
-          try {
-            sheet.cssRules;
-            return true;
-          }
-          catch(e) {
-            
-            return false;
-          }
-        })       
-        parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
-
-      stylesParsed = true;
-    }
+    parseStyles (json, checkUsage);
 
     this.breakpoints = bps || breakpoints;
     this.minBreakpoint = minBp || minBreakpoint || this.breakpoints[0];
@@ -476,6 +443,7 @@ class FluidScale {
       state.order = -1;
       state.value = null;
       state.lastFp = fp;
+      state.fp = null;
       state.lastDynamicChange = state.dynamicChange
       state.dynamicChange = null
       return true;
@@ -801,7 +769,7 @@ class FluidProperty {
     if(!isActive || !isPseudoMatch)
       return;
     
-    if(this.fs.lastWindowWidth === currentWidth && !state.lastDynamicChange)
+    if(this.fs.lastWindowWidth === currentWidth && !state.lastDynamicChange && state.lastFp)
     {
       if(state.lastFp === this)
       {
@@ -813,9 +781,9 @@ class FluidProperty {
     
     if(!isInViewport (this.el, this.boundClientRectCache))
       return;
-    
+
     const strValue = this.toString(breakpointIndex, currentWidth);
-   
+
     if(!strValue)
       return;
 
@@ -880,15 +848,7 @@ function constructGPUVersion (fluidProperty)
   }
 }
 
-async function waitForStylesheets(maxRetries = 10, delay = 50) {
-  for (let i = 0; i < maxRetries; i++) {
-    if (document.styleSheets.length > 0) {
-      return document.styleSheets;
-    }
-    await new Promise((resolve) => setTimeout(resolve, delay));
-  }
-  throw new Error("Stylesheets didn't load in time");
-}
+
 
 function getCachedComputedStyle (el, cache) 
 {
@@ -1126,6 +1086,45 @@ let stylesParsed = false;
 // helper: walk rules
 
 let prevValues = {};
+
+function parseStyles (json)
+{
+  if (!stylesParsed && (!json || jsonLoaded !==  json)) {
+
+    // run once on load
+    let sheets = checkUsage
+      ? document.styleSheets.filter((sheet) => {
+          try {
+            const ownerNode = sheet.ownerNode;
+            if (!ownerNode) return false;
+
+            if (ownerNode.tagName === 'STYLE') {
+              const text = ownerNode.textContent.trimStart();
+              return text.startsWith('/*enable-fluid');
+            } else if (ownerNode.tagName === 'LINK') {
+              return 'fluid' in node.dataset;
+            }
+          } catch {
+            return false;
+          }
+        })
+      : document.styleSheets;
+
+      sheets = Array.from (sheets).filter (sheet => {
+        try {
+          sheet.cssRules;
+          return true;
+        }
+        catch(e) {
+          
+          return false;
+        }
+      })       
+      parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
+
+    stylesParsed = true;
+  }
+}
 
 function parseNextValues(rules) {
   for (const rule of rules) {
@@ -1617,7 +1616,6 @@ function extractBorderWidthFromBorderShorthand(value) {
 
 let CSSRuleRef;
 let mediaBps;
-let spans = {};
 
 function assignOrderIndex(rules, state = {currOrder:0}) {
  
@@ -1661,6 +1659,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
     assignOrderIndex (rulesArr);
     
+    prevValues = {};
 
     mediaBps = rulesArr
       .filter(
@@ -2267,7 +2266,7 @@ export default async function init({
   minBreakpoint: minBp,
   maxBreakpoint: maxBp,
   usingPartials: usingPs,
-  checkUsage = false,
+  checkUsage: checkUsg,
   autoApply: autoApp,
   json = '',
   autoTransition: autoT,
@@ -2287,14 +2286,19 @@ export default async function init({
   if (typeof minMode === 'boolean') minimizedMode = minMode;
   if (typeof customCmm === 'boolean') enableComments = customCmm;
   if (typeof updateRt === 'number') updateRate = updateRt;
+  if (typeof checkUsg === 'boolean') checkUsage = checkUsg;
 
   if (fluidScale) {
+    
     fluidScale.autoTransition = autoTransition;
     if (json) {
       observerPaused = true;
       await loadJSON(json);
       observerPaused = false;
     }
+    else 
+      parseStyles (json, checkUsage);
+
     fluidScale.addElements(root);
   } else {
     const fs = await FluidScale.create (root, breakpoints, {
