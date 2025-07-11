@@ -704,7 +704,7 @@ class FluidScale {
     for (const el of this.activeElements)
       this.updateElement (el, elsToRemove);
 
-    if (this.updateAboveViewport)
+    if (false && this.updateAboveViewport)
     {
       for (const el of this.inactiveEls)
         this.updateElement (el, elsToRemove);

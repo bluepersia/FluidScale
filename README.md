@@ -189,13 +189,15 @@ fluidScale({
 ## ⚓️ Custom Scroll Anchoring
 
 By default, the engine will override scroll anchoring behavior.
-To disable:
+It keeps track of the element closest to the fixation point (default is `top`), and maintains the position. I find this to be more accurate than the default browser algorithm.
+
+If you don't like it:
 
 ```js
 fluidScale({ scrollFix: false });
 ```
 
-Firefox doesn't like overrides, resulting in jitter. I prefer the custom algorithm, but you essentially have the choice which jitter you want - the default, or FluidScale's. The final position is more accurate with FluidScale, I believe.
+Firefox doesn't like overrides, resulting in jitter. You essentially have the choice which jitter you prefer.
 You can disable it for Firefox specifically:
 
 ```js
@@ -205,7 +207,7 @@ fluidScale({ scrollFix: { firefox: false } });
 Or change the anchoring fixation:
 
 ```js
-fluidScale({ scrollFix: { point: 'center' } }); //Default is 'top'
+fluidScale({ scrollFix: { point: 'center' } });
 ```
 
 ## 📐 Advanced
