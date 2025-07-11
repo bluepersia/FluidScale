@@ -7,10 +7,8 @@
 
 **Latest update**:
 
-1. Engine now updates **before** repaint. Fixes glitches with layout changes, etc.
-2. Locking values causes them to span across to the furthest breakpoint possible. Read more below.
-3. Shorthand + Longhand mixed support (e.g. padding -> padding-left)
-4. Text value glitches fixed ('auto', etc.). These values still don't scale fluidly as of now.
+1. Performance optimization - only compute what's on screen, set the rest to defaults.
+2. Custom scroll anchoring algorithm. Read more below.
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
@@ -187,6 +185,28 @@ fluidScale({
 ```
 
 `onlyStart` means: only transition from the default values to the fluid value, not all the time.
+
+## ⚓️ Custom Scroll Anchoring
+
+By default, the engine will override scroll anchoring behavior.
+To disable:
+
+```js
+fluidScale({ scrollFix: false });
+```
+
+Firefox doesn't like overrides, resulting in jitter. I prefer the custom algorithm, but you essentially have the choice which jitter you want - the default, or FluidScale's. The final position is more accurate with FluidScale, I believe.
+You can disable it for Firefox specifically:
+
+```js
+fluidScale({ scrollFix: { firefox: false } });
+```
+
+Or change the anchoring fixation:
+
+```js
+fluidScale({ scrollFix: { point: 'center' } }); //Default is 'top'
+```
 
 ## 📐 Advanced
 

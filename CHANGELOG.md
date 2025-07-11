@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.0.1671-alpha]- 2025-07-07
+
+### Changed
+
+Rewrote the update algorithm for fluid properties.
+
+### Added
+
+1. Support for inline styles
+2. Support for dynamic pseudo selectors
+3. --force
+4. Spanning with --span-start and --span-end
+
+### Fixed
+
+Negative numbers work now.
+
 ## [0.0.1668-alpha]- 2025-07-05
 
 1.Locking values now spans across to the last breakpoint, if no intercepting value is defined.

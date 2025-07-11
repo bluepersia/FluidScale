@@ -1,7 +1,39 @@
 let React;
-import { Parser } from "expr-eval";
 
-const evalParser = new Parser ();
+
+let evalParser;
+async function loadExprEval ()
+{
+  let Parser;
+  try {
+  const mod = await import("expr-eval"); 
+  Parser = mod.Parser;
+} catch (err) {
+  const mod = await import("https://esm.sh/expr-eval");
+  Parser = mod.Parser;
+}
+
+ evalParser = new Parser ();
+}
+
+//let scrollContainer;
+
+
+/*
+document.body.style.overflow = document.documentElement.style.overflow = 'hidden';
+document.body.style.height = document.documentElement.style.height = '100%';
+document.body.style.margin = document.documentElement.style.margin = '0';
+
+scrollContainer = document.createElement('div');
+scrollContainer.classList.add('scroll-container');
+
+while (document.body.firstChild) {
+  scrollContainer.appendChild(document.body.firstChild);
+}
+
+document.body.appendChild(scrollContainer);*/
+
+
 
 let rootFontSize = 16;
 const rootFontSizeChanged = [];
@@ -36,6 +68,182 @@ const observer = new ResizeObserver(() => {
 
 observer.observe(rootFontSizeEl);
 }catch(err){}
+
+let scrollFix = {point: 'top'};
+let currentScroll = 0;
+let targetScroll = 0;
+let maxScroll = 100;
+let userScrollingTimeout;
+let isUserScrolling;
+let onScrollEnd = userScroll;
+const isFirefox = navigator.userAgent.toLowerCase ().includes ('firefox');
+function userIsScrolling ()
+{
+  clearTimeout (userScrollingTimeout);
+  isUserScrolling = true;
+  setTimeout (() => {
+    isUserScrolling = false
+    onScrollEnd ();
+  }, 300);
+}
+
+let scrollFixInitted = false;
+
+
+function initScrollFix ()
+{
+  
+
+  if (scrollFix.firefox === false && isFirefox)
+  {
+    scrollFix = false;
+    return;
+  }
+  if (scrollFixInitted)
+    return;
+
+  scrollFixInitted = true;
+
+  document.body.style.scrollBehavior = 'instant';
+      document.body.style.overflowAnchor = 'none';
+      document.documentElement.style.scrollBehavior = 'instant';
+      document.documentElement.style.overflowAnchor = 'none';
+
+      let intervalId;
+  window.addEventListener('mousedown', (event) => {
+    
+    const viewportWidth = window.innerWidth;        // Visible width of viewport
+    const clickX = event.clientX;                    // X position of mouse click inside viewport
+  
+    // Threshold area (in pixels) from the right edge to consider as scrollbar click
+    const scrollbarWidthEstimate = 20;
+  
+    if (clickX >= viewportWidth - scrollbarWidthEstimate) {
+     
+      intervalId = setInterval(() => {
+       
+      userIsScrolling ();
+        // Your repeated logic here
+      }, 100);
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    clearInterval(intervalId);
+  });
+window.addEventListener('wheel', (e) => {
+/*
+  const contentHeight = scrollContainer.scrollHeight;
+  const viewportHeight = window.innerHeight;
+  maxScroll = Math.max(0, contentHeight - viewportHeight);
+
+  targetScroll += e.deltaY;
+  targetScroll = Math.max (0, Math.min(maxScroll, targetScroll));
+*/
+  userIsScrolling (); 
+}, {passive:false});
+
+window.addEventListener('touchstart', () => {
+
+  userIsScrolling ();
+});
+
+window.addEventListener('keydown', (e) => {
+  const keys = ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '];
+  if (keys.includes(e.key)) {
+    userIsScrolling ();
+  }
+});
+}
+
+
+
+let topEl;
+let lastTop;
+function userScroll ()
+{
+  const [el, rect] = getElementClosestToTop (elsInViewport);
+  topEl = el;
+  if(typeof rect === 'number')
+    lastTop = rect;
+  else 
+    lastTop = rect.top;
+
+    lastTop = Math.round(lastTop);
+}
+try {
+
+}catch(err){}
+function getElementDistanceFromTop(element) {
+  const rect = element.getBoundingClientRect();
+  return rect.top + window.scrollY;
+}
+
+
+let interObserver;
+let elsInViewport = new Set();
+const elsEntered =[];
+const elsExited = [];
+let viewportStarted;
+
+function removeEntry (entry)
+{
+  elsInViewport.delete (entry.target);
+  entry.target.isHidden = true;
+  
+     
+}
+try 
+{
+  interObserver = new IntersectionObserver((entries) => {
+
+    const entered = [];
+    const exited = [];
+    entries.forEach((entry) => {
+
+      if (entry.isIntersecting) {
+        entered.push (entry.target);
+        /*
+        elsAboveViewport = elsAboveViewport.filter (e => e !== entry.target);
+        entry.target.style.height = '';
+        entry.target.style.overflowY = '';
+        */
+        elsInViewport.add (entry.target);
+       
+        entry.target.isHidden = false;
+        entry.target.lastEntry = performance.now ();
+
+
+       // elEnteredCb.forEach (cb => cb (entry.target))
+      } else {
+       
+        exited.push (entry.target);
+          removeEntry (entry);
+     
+      
+        //const rect = entry.target.getBoundingClientRect ();
+        //if(rect.bottom < 0)
+ 
+        //elExitedCb.forEach (cb => cb(entry.target));
+
+
+      } 
+    });
+    
+
+
+    elsEntered.forEach (cb => cb(entered));
+    elsExited.forEach (cb => cb(exited));
+
+    if(!viewportStarted)
+      userIsScrolling ();
+    
+    viewportStarted = true;
+
+
+  }, {root: null, rootMargin: '100%', threshold: 0});
+}catch(err) {}
+
 
 /*
 async function loadReact() {
@@ -146,7 +354,6 @@ let forceGPU = true;
 let updateRate = 0;
 
 class FluidScale {
-  fluidProperties = [];
   classCache = new Map();
   breakpoints = [550, 1085];
   minBreakpoint = 300;
@@ -189,8 +396,14 @@ class FluidScale {
     this.elVariables = {};
     this.animateBound = this.animate.bind (this);
     this.updateBound = this.update.bind(this);
-    //this.onResizeBound = this.onResize.bind(this);
-    //window.addEventListener('scroll', this.onResizeBound);
+    this.elsEnteredBound = this.elsEntered.bind (this);
+    this.elsExitedBound = this.elsExited.bind (this);
+    elsEntered.push (this.elsEnteredBound);
+    elsExited.push (this.elsExitedBound);
+    this.onResizeBound = this.onResize.bind(this);
+    window.addEventListener ('resize', this.onResizeBound);
+    window.addEventListener ('pointerup', this.onMouseUpBound);
+
     rootFontSizeChanged.push (this.updateBound);
 
     if (!json && (this.breakpoints !== breakpoints || wasParsed)) {
@@ -233,13 +446,27 @@ class FluidScale {
     }
   }
 
+  activeElements = new Set();
+  allElementsSeen = [];
+
   addElements(els) {
 
-    els
-      .filter((el) => !this.fluidProperties.find((fp) => fp.el === el))
-      .forEach((el) => {
+
+    els.forEach((el) => {
+    
         if(!el.state)
+        {
           el.state = {};
+          el.states = [];
+        }
+        const elFluidProperties = [];
+        el.fluidProperties = elFluidProperties;
+
+        let added = false;
+
+
+        if (document.body.contains (el) && el !== document.body)
+        interObserver.observe (el);
 
         const classKey = getClassSelector(el);
 
@@ -257,7 +484,15 @@ class FluidScale {
               this,
             );
 
-            this.fluidProperties.push(fluidProperty);
+            elFluidProperties.push(fluidProperty);
+            el.fs = this;
+            /*
+            if(!added)
+            {
+              this.activeElements.add (el);
+              el.fluid = true;
+              added = true;
+            }*/
           });
         } else {
           const classCacheArr = [];
@@ -294,8 +529,17 @@ class FluidScale {
                   this.boundClientRectCache,
                   this, 
                 );
-                this.fluidProperties.push(fluidProperty);
+                
+                elFluidProperties.push (fluidProperty);
 
+                /*
+                if(!added)
+                  {
+                    this.activeElements.add (el);
+                    el.fluid = true;
+                    added = true;
+                  }*/
+                el.fs = this;
                 classCacheArr.push({
                   variableName,
                   arr,
@@ -322,14 +566,17 @@ class FluidScale {
           ? [...el.transitions, ...varTransitions]
           : varTransitions;
         el.transitionStr = transitions.join(', ');
-        el.transitionBaseStr = el.transitions ? [...el.transitions].join(', ') : '';
-        el.style.transition = el.transitionStr;
+        //el.transitionBaseStr = el.transitions ? [...el.transitions].join(', ') : '';
+        el.style.setProperty ('transition', el.transitionStr);
+       //el.style.transition = el.transitionStr;
       }
     }
+  
 
     if (this.observeRemove) {
     }
-    requestAnimationFrame (this.animateBound);
+    if(!this.startedAnimate)
+      requestAnimationFrame (this.animateBound);
   }
 
   removeElements(els) {
@@ -338,14 +585,20 @@ class FluidScale {
     );
   }
 
+
+ 
   animate ()
   {
+    this.startedAnimate = true;
+
     if(this.destroyed)
       return;
 
     this.update ();
+
     requestAnimationFrame (this.animateBound);
   }
+  /*
   updateDebounceCb = null
   onResize ()
   {
@@ -359,7 +612,18 @@ class FluidScale {
 
       setTimeout (this.updateDebounceCb, updateRate);
     }
-  }
+  }*/
+
+    resizeTimer;
+
+    onResize ()
+    {
+      clearTimeout(this.resizeTimer);
+  this.resizeTimer = setTimeout(() => {
+    this.updateAboveViewport = true;
+  }, 200); 
+    }
+
 
   computedStyleCache = new Map();
   boundClientRectCache = new Map();
@@ -400,68 +664,276 @@ class FluidScale {
     this.currentBpIndex = currentBpIndex;
   }
 
+  elsEntered (els)
+  {
+    for(const el of els)
+    {
+      if (el.fs !== this)
+        continue;
+
+      this.activeElements.add (el);
+      this.inactiveEls.delete (el);
+    }
+  }
+
+  elsExited (els)
+  {
+   for(const el of els)
+   {
+    if(el.fs !== this)
+      continue;
+
+      this.activeElements.delete (el);
+      this.inactiveEls.add (el);
+    }
+  }
+
+
   fluidState = [];
 
+  started = false;
+  lastTopEl;
+  lastWidthShift = performance.now();
+  inactiveEls = new Set();
   update() {
+
     this.calcCurrentWidth ();
 
-    this.fluidProperties = this.fluidProperties.filter((fp) => {
-      
-      if (!fp.el.isConnected) return false;
-      fp.update(this.currentBpIndex, this.currentWidth);
-      return true;
-    });
 
-    this.fluidState = this.fluidState.filter (state => {
+    const elsToRemove = [];
+    for (const el of this.activeElements)
+      this.updateElement (el, elsToRemove);
 
-      if(!state.el.isConnected) return false;
-  
-      const {lastValue, value, el, propertyName, fp} = state;
-      
-      const valueChanged = lastValue !== value || state.inlineActive === false;
+    if (this.updateAboveViewport)
+    {
+      for (const el of this.inactiveEls)
+        this.updateElement (el, elsToRemove);
 
-      if (valueChanged && !state.inlineActive)
-      {
-        state.inlineActive = null;
+      this.inactiveEls = new Set();
+    }
 
-        if (value === null)
-        {
-          el.style.removeProperty (propertyName);
-          if(this.autoTransition?.onlyStart)
-            el.style.setProperty ('transition', el.transitionStr);
-        }
-        else 
-        {
-          el.style.setProperty (propertyName, value);
-          if(this.autoTransition?.onlyStart)
-           setTimeout (() => el.style.setProperty ('transition', el.transitionBaseStr), this.autoTransition.time || 300);
-        }
-
-          state.lastValue = value;
-      }
-      
-      state.order = -1;
-      state.value = null;
-      state.lastFp = fp;
-      state.fp = null;
-      state.lastDynamicChange = state.dynamicChange
-      state.dynamicChange = null
-      return true;
-     })
+    for(const el of elsToRemove)
+      this.activeElements.delete (el);
 
     this.computedStyleCache.clear();
     this.boundClientRectCache.clear ();
+
+
+   
+  if(scrollFix)
+  {
+    this.applyScrollFix ();
+  /*
+    if (justShifted) {
+      scrollContainer.style.transform = `translateY(${-currentScroll}px)`;
+     
+      justShifted = false;
+    } else {
+      if (targetScroll !== currentScroll)
+      {
+        currentScroll += (targetScroll - currentScroll) * 0.1;
+        scrollContainer.style.transform = `translateY(${-currentScroll}px)`;
+      }
+    }
+
+*/
+    }
+
     this.lastWindowWidth = this.currentWidth;
+    this.updateAboveViewport = false;
+    if(viewportStarted)
+      this.started = true;
+
+
   }
 
+
+  updateElement (el, elsToRemove)
+  {
+    if (!el.isConnected)
+      {
+        elsToRemove.push (el)
+        return;
+      }
+
+      for (const fp of el.fluidProperties)
+        fp.update (this.currentBpIndex, this.currentWidth);
+
+
+      for (const state of el.states)
+      {
+    
+        const { value, el, propertyName, fp, valueApplied} = state;
+        
+        const valueChanged = value !== valueApplied || state.inlineActive === false;
+      
+        
+        if (valueChanged && !state.inlineActive)
+        {
+          state.inlineActive = null;
+  
+          if (value === null)
+          {
+            el.style.removeProperty (propertyName); 
+            this.postStateApply (state, value, fp);
+          }
+          else 
+          {
+            let delayedWrite;
+            if(this.autoTransition?.onlyStart && !state.isDelayed)
+              {
+                if(!this.started && elsInViewport.has (el))
+                {
+                  if(!isFirefox)
+                    delayedWrite = true;
+                  
+
+                  el.style.transition = el.transitionStr;
+                }
+                else 
+                {
+                  el.style.transition = 'none';
+                }
+                
+              }
+              
+              if (delayedWrite)
+                state.isDelayed = true;
+              else 
+              {
+                el.style.setProperty (propertyName, value);
+                this.postStateApply (state, value, fp);
+                if(this.autoTransition?.onlyStart)
+                {
+                  if(state.isDelayed)
+                    requestAnimationFrame(() => setTimeout(() => (el.style.transition = ''), this.autoTransition.time || 300));
+                  else 
+                    requestAnimationFrame (() => el.style.transition = '');
+
+                    state.isDelayed = false;
+                }
+              }
+            
+          }
+           
+        }
+       // state.lastValue = value;
+       // state.order = -1;
+       //state.lastFp = fp;
+        state.lastDynamicChange = state.dynamicChange
+        
+        state.dynamicChange = null
+        state.value = null;
+        state.fp = null;
+      }
+  }
+  
+  
+postStateApply (state, value, fp)
+{
+  state.valueApplied = value;
+  state.widthApplied = this.currentWidth;
+  state.fpApplied = fp;
+}
+  applyScrollFix ()
+{
+   //let justShifted;
+    
+ 
+          /*
+    if (topEl)
+    {
+      if(this.lastTopEl && topEl !== this.lastTopEl)
+        this.lastTopEl.style.border = '';
+
+      topEl.style.border = 'solid 1px green';
+    }
+
+    this.lastTopEl = topEl;
+
+    if(this.currentWidth < this.lastWindowWidth)
+      elsAboveViewport.forEach (el => {
+        el.style.height = '';
+        el.style.overflowY = '';
+        el.locked = false;
+      })
+    else if (this.currentWidth > this.lastWindowWidth)
+      elsAboveViewport.forEach (el => {   
+        if (!el.locked)
+        {
+          const rect = getCachedBoundingClientRect (el, this.boundClientRectCache);
+          if (rect.width === 0 && rect.height === 0)
+            return;
+          el.style.height = `${rect.height}px`;
+          el.style.overflowY = 'hidden';
+          el.locked = true;
+        }
+      })*/
+    
+        if(this.currentWidth !== this.lastWindowWidth || this.updateAboveViewport)
+        {
+          this.lastWasUpdateAboveVp = this.updateAboveViewport;
+          this.lastWidthShift = performance.now();
+        }
+      if (performance.now() - this.lastWidthShift <= 500 && topEl && !isUserScrolling)
+     {
+  
+      if(this.lastWasUpdateAboveVp)
+        void document.body.offsetHeight;
+      
+      let rect = topEl.getBoundingClientRect ();
+
+    let zeroEl;
+    if(rect.width === 0 && rect.height === 0)
+    {
+      zeroEl = topEl;
+      const [newEl, newRect] = getElementClosestToLastTop (elsInViewport);
+      if (newEl)
+      {
+        topEl = newEl;
+        rect = newRect;
+      }
+    }
+
+    if(topEl !== zeroEl)
+    {
+    rect = topEl.getBoundingClientRect ();
+    const newTop = Math.round(rect.top);
+   
+    const distance = newTop - lastTop;
+      const tolerance = 0;
+
+    if(Math.abs(distance) > tolerance)
+    {
+      const clampedDistance = distance > 0
+    ? distance - tolerance
+    : distance + tolerance;
+
+
+      let targetY = window.scrollY + clampedDistance;
+
+      window.scrollTo({
+        top: targetY,
+        behavior: 'auto'
+      })
+
+    }
+      //targetScroll += distance;
+     // currentScroll = targetScroll;
+      //justShifted = true;
+    }
+
+  }
+}
+
   destroy() {
-    //window.removeEventListener('resize', this.onResizeBound);
-    //window.removeEventListener ('scroll', this.onResizeBound);
+  
     this.destroyed = true;
     rootFontSizeChanged.splice (rootFontSizeChanged.findIndex (this.updateBound), 1);
     this.observer?.disconnect();
   }
 }
+
 
 class FluidProperty {
   //noMin = false;
@@ -557,10 +1029,9 @@ class FluidProperty {
     {
       state.order =  -1;
       state.value = null;
-      state.lastValue = null;
       state.el = el;
       state.propertyName = propertyName;
-      fs.fluidState.push (state);
+      el.states.push (state);
       state.isInit = true;
     }
 
@@ -753,41 +1224,54 @@ class FluidProperty {
     return '';
   }
 
-  lastActive = null
-  lastPseudoMatch = null
-  update(breakpointIndex, currentWidth) {
-    const state = this.state;
+  lastIsActive = null
 
-    const isActive = this.active;
+  _isActive = null;
+  isActive () {
+    
+    if(this._isActive !== null)
+      return this._isActive;
+
     const isPseudoMatch = this.isPseudo ? this.el.matches (this.pseudoSel) : true;
 
-    state.dynamicChange = isActive !== this.lastActive || isPseudoMatch !== this.lastPseudoMatch;
-    
-    this.lastActive = isActive;
-    this.lastPseudoMatch = isPseudoMatch;
+    this._isActive = this.active && isPseudoMatch;
+   
+    return this._isActive;
+  }
 
-    if(!isActive || !isPseudoMatch)
-      return;
+
+  update(breakpointIndex, currentWidth) { 
+    const state = this.state;
+
+    const isActive = this.isActive ();
+    this._isActive = null;
     
-    if(this.fs.lastWindowWidth === currentWidth && !state.lastDynamicChange && state.lastFp)
+    state.dynamicChange = isActive !== this.lastIsActive;
+    
+    this.lastIsActive = isActive;
+
+    if(!isActive)
+      return;
+
+    if (this.el.isHidden)
+      return;
+
+    if(currentWidth === this.state.widthApplied && !state.lastDynamicChange && state.fpApplied?.isActive())
     {
-      if(state.lastFp === this)
+      if(state.fpApplied === this)
       {
-        state.fp = state.lastFp;
-        state.value = state.lastValue;
+        state.fp = state.fpApplied;
+        state.value = state.valueApplied;
       }
       return;
     }
-    
-    if(!isInViewport (this.el, this.boundClientRectCache))
-      return;
 
     const strValue = this.toString(breakpointIndex, currentWidth);
 
     if(!strValue)
       return;
 
-   
+    
     state.fp = this;
     if (autoApply) {
 
@@ -828,6 +1312,59 @@ class FluidPropertyCombo extends FluidProperty {
   }
 }
 
+
+function getElementClosestToLastTop(elements) {
+  if(elements.size <= 0)
+    return [null, lastTop];
+
+  let closestElement = null;
+  let closestDistance = Infinity;
+  let closestRect;
+
+  elements.forEach(el => {
+    const rect = el.getBoundingClientRect();
+    
+    const distance = Math.abs (rect.top - lastTop);
+    if (distance < closestDistance) {
+      closestDistance = distance;
+      closestElement = el;
+      closestRect = rect;
+    }
+  });
+
+  return [closestElement, closestRect];
+}
+function getElementClosestToTop(elements) {
+  if(elements.size < 0)
+    return [topEl, lastTop];
+
+  let closestElement = topEl;
+  let closestDistance = Infinity;
+  let closestRect = lastTop;
+  
+  let center = scrollFix.point === 'center' ? window.innerHeight * 0.5 : 0;
+
+  elements.forEach(el => {
+    const rect = el.getBoundingClientRect();
+
+    if (rect.width === 0 && rect.height === 0)
+      return;
+    
+    if (rect.top < 0)
+      return;
+
+    const distance = scrollFix.point === 'top' ? rect.top : Math.abs(rect.top - center);
+    let isCloser = distance < closestDistance;
+    
+    if (isCloser) {
+      closestDistance = distance;
+      closestElement = el;
+      closestRect = rect;
+    }
+  });
+
+  return [closestElement, closestRect];
+}
 function constructGPUVersion (fluidProperty)
 {
   switch (fluidProperty.name)
@@ -866,16 +1403,18 @@ function getCachedBoundingClientRect (el, cache)
   return cache.get (el);
 }
 
-function isInViewport(el, cache) {
+function isInViewport(el, cache, margin = 0) {
   const rect = getCachedBoundingClientRect (el, cache);
   if (rect.width === 0 && rect.height === 0)
     return false;
   const vwWidth = window.innerWidth;
   const vwHeight = window.innerHeight;
 
-  const marginPercent = 0.5;
+  const marginPercent = margin;
   const marginX = vwWidth * marginPercent;
   const marginY = vwHeight * marginPercent;
+
+  
   return (
     rect.bottom    >= -marginY &&
     rect.right   >= -marginX &&
@@ -886,11 +1425,11 @@ function isInViewport(el, cache) {
 
 
 
-function getCharUnit(el, unit = 'ch') {
+function getCharUnit(el, unit = 'ch', style) {
   const test = document.createElement('span');
   test.style.visibility = 'hidden';
   test.style.position = 'absolute';
-  test.style.font = getComputedStyle(el).font;
+  test.style.font = style.font;
   test.textContent = unit === 'ch' ? '0' : 'x';
   document.body.appendChild(test);
   const rect = test.getBoundingClientRect();
@@ -1041,7 +1580,7 @@ function convertToPx (val, unit, property, el, computedStyleCache, boundClientRe
 
     case 'ch':
     case 'ex':
-      return val * getCharUnit(el, unit);
+      return val * getCharUnit(el, unit, getCachedComputedStyle(el));
 
     case "lh": 
       const style = getCachedComputedStyle(el, computedStyleCache);
@@ -1541,16 +2080,15 @@ function parseSingleValFull (val)
 
   return parseSingleVal (val);
 }
-function parseSingleVal (val)
-{
-  //if (isStrVal(val))
-    //return val;
+function parseSingleVal(val) {
+  // if (isStrVal(val)) return val;
 
-const match = val.match(/[\d.]+/);
-const number = match ? parseFloat(match[0]) : val;
+  const match = val.match(/-?\d*\.?\d+/);
+  const number = match ? parseFloat(match[0]) : val;
 
-return number;
+  return number;
 }
+
 function extractUnit(input, property) {
   const match = input.match(/[a-z%]+$/i);
   return match ? match[0] : property === 'line-height' ? 'lh' : 'px';
@@ -1968,21 +2506,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             isCombo = true;
           } else {
             const valueArr = allCalcsParsed;
-            const isOne = valueArr.length <= 1;
-            let first = valueArr[0];
-            if (isOne)
-            {
-              if(Array.isArray (first) && first[0] === 'break')
-                first = first[1];
-              
-              minValues = [first];
-              maxValues = [first];
-            }
-            else 
-            {
-              minValues = [valueArr[0]];
-              maxValues = [valueArr[1]];
-            }
+            minValues = [valueArr[0]];
+            maxValues = [valueArr[1]];
           }
           let transition;
           if (bpIndex === 0 && autoTransition)
@@ -2273,6 +2798,7 @@ export default async function init({
   minimizedMode: minMode,
   enableComments: customCmm,
   forceGPU = false,
+  scrollFix : scrollFx,
   updateRate : updateRt
 } = {}) {
   autoBreakpoints = bps === 'auto';
@@ -2287,9 +2813,16 @@ export default async function init({
   if (typeof customCmm === 'boolean') enableComments = customCmm;
   if (typeof updateRt === 'number') updateRate = updateRt;
   if (typeof checkUsg === 'boolean') checkUsage = checkUsg;
+  if (typeof scrollFx === 'object' || typeof scrollFx === 'boolean') scrollFix = scrollFx;
+
+  viewportStarted = false;
+
+  if (scrollFix)
+    initScrollFix ();
 
   if (fluidScale) {
     
+    fluidScale.started = false;
     fluidScale.autoTransition = autoTransition;
     if (json) {
       observerPaused = true;
