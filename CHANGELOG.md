@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.0.1674-alpha]- 2025-07-12
+
+### Modified
+
+Changed math eval to new Function() approach.
+
+## [0.0.1673-alpha]- 2025-07-11
+
+### Added
+
+1. Performance optimization. Only compute on-screen elements.
+2. Custom scroll anchoring algorithm.
+
 ## [0.0.1671-alpha]- 2025-07-07
 
 ### Changed

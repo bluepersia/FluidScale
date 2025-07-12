@@ -1,6 +1,6 @@
 let React;
 
-
+/*
 let evalParser;
 async function loadExprEval ()
 {
@@ -14,7 +14,7 @@ async function loadExprEval ()
 }
 
  evalParser = new Parser ();
-}
+}*/
 
 //let scrollContainer;
 
@@ -92,8 +92,6 @@ let scrollFixInitted = false;
 
 function initScrollFix ()
 {
-  
-
   if (scrollFix.firefox === false && isFirefox)
   {
     scrollFix = false;
@@ -704,7 +702,7 @@ class FluidScale {
     for (const el of this.activeElements)
       this.updateElement (el, elsToRemove);
 
-    if (false && this.updateAboveViewport)
+    if (this.updateAboveViewport)
     {
       for (const el of this.inactiveEls)
         this.updateElement (el, elsToRemove);
@@ -840,7 +838,7 @@ postStateApply (state, value, fp)
    //let justShifted;
     
  
-          /*
+         /* 
     if (topEl)
     {
       if(this.lastTopEl && topEl !== this.lastTopEl)
@@ -1334,6 +1332,22 @@ function getElementClosestToLastTop(elements) {
 
   return [closestElement, closestRect];
 }
+
+function getElementOneUpFromLastTop ()
+{
+  let prevEl;
+  if (topEl.previousElementSibling) {
+    prevEl = topEl.previousElementSibling;
+  }
+  else 
+  {
+    prevEl = topEl.parentEl;
+  }
+
+  const rect = prevEl.getBoundingClientRect ();
+
+  return [prevEl, rect];
+}
 function getElementClosestToTop(elements) {
   if(elements.size < 0)
     return [topEl, lastTop];
@@ -1473,8 +1487,9 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
       const [minVal, fluidVal, maxVal] = pxValues;
       return Math.min(Math.max(fluidVal, minVal), maxVal);
     case "calc":
-      const expr = evalParser.parse (pxValues.join(' '));
-      return expr.evaluate ();
+     // const expr = evalParser.parse (pxValues.join(' '));
+     // return expr.evaluate ();
+     return evaluateCalc (pxValues.join(' '));
     case "minmax":
       const style = getCachedComputedStyle (el, computedStyleCache);
       switch(property)
@@ -1501,7 +1516,14 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
       return Math.max(pxValues[0], pxValues[1]);
   }
 }
+function evaluateCalc(expression) {
 
+  if (!/^[\d+\-*/().\s]+$/.test(expression)) {
+    throw new Error("Unsafe expression");
+  }
+
+  return new Function(`return (${expression})`)();
+}
 function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0) {
   const totalGap = (n) => (n - 1) * gap;
 
