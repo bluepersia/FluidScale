@@ -162,12 +162,15 @@ function userScroll ()
 {
   const [el, rect] = getElementClosestToTop (elsInViewport);
   topEl = el;
+  if(el)
+  {
   if(typeof rect === 'number')
     lastTop = rect;
   else 
     lastTop = rect.top;
 
     lastTop = Math.round(lastTop);
+}
 }
 try {
 
@@ -341,6 +344,7 @@ let autoBreakpoints;
 let baseBreakpoint = null;
 let minBreakpoint;
 let maxBreakpoint;
+let usingJSON;
 let usingPartials = true;
 let autoApply = true;
 let checkUsage = false;
@@ -697,7 +701,7 @@ class FluidScale {
 
     this.calcCurrentWidth ();
 
-
+    
     const elsToRemove = [];
     for (const el of this.activeElements)
       this.updateElement (el, elsToRemove);
@@ -837,8 +841,7 @@ postStateApply (state, value, fp)
 {
    //let justShifted;
     
- 
-         /* 
+   /* 
     if (topEl)
     {
       if(this.lastTopEl && topEl !== this.lastTopEl)
@@ -848,7 +851,8 @@ postStateApply (state, value, fp)
     }
 
     this.lastTopEl = topEl;
-
+   
+    
     if(this.currentWidth < this.lastWindowWidth)
       elsAboveViewport.forEach (el => {
         el.style.height = '';
@@ -885,7 +889,7 @@ postStateApply (state, value, fp)
     if(rect.width === 0 && rect.height === 0)
     {
       zeroEl = topEl;
-      const [newEl, newRect] = getElementClosestToLastTop (elsInViewport);
+      const [newEl, newRect] = getElementOneUpFromLastTop();
       if (newEl)
       {
         topEl = newEl;
@@ -1348,6 +1352,11 @@ function getElementOneUpFromLastTop ()
 
   return [prevEl, rect];
 }
+function getDiagonalDistance(x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  return dx * dx + dy * dy
+}
 function getElementClosestToTop(elements) {
   if(elements.size < 0)
     return [topEl, lastTop];
@@ -1356,7 +1365,7 @@ function getElementClosestToTop(elements) {
   let closestDistance = Infinity;
   let closestRect = lastTop;
   
-  let center = scrollFix.point === 'center' ? window.innerHeight * 0.5 : 0;
+  const fixation = scrollFix.point === 'center' ? [window.innerWidth * 0.5, window.innerHeight * 0.5] : [0, 0];
 
   elements.forEach(el => {
     const rect = el.getBoundingClientRect();
@@ -1367,7 +1376,7 @@ function getElementClosestToTop(elements) {
     if (rect.top < 0)
       return;
 
-    const distance = scrollFix.point === 'top' ? rect.top : Math.abs(rect.top - center);
+    const distance = getDiagonalDistance (rect.left, rect.top, fixation[0], fixation[1]); 
     let isCloser = distance < closestDistance;
     
     if (isCloser) {
@@ -1650,6 +1659,9 @@ let prevValues = {};
 
 function parseStyles (json)
 {
+  if (usingJSON)
+    return;
+  
   if (!stylesParsed && (!json || jsonLoaded !==  json)) {
 
     // run once on load
@@ -2820,6 +2832,7 @@ export default async function init({
   minimizedMode: minMode,
   enableComments: customCmm,
   forceGPU = false,
+  usingJSON : usingJson,
   scrollFix : scrollFx,
   updateRate : updateRt
 } = {}) {
@@ -2836,7 +2849,13 @@ export default async function init({
   if (typeof updateRt === 'number') updateRate = updateRt;
   if (typeof checkUsg === 'boolean') checkUsage = checkUsg;
   if (typeof scrollFx === 'object' || typeof scrollFx === 'boolean') scrollFix = scrollFx;
-
+  if (typeof usingJson === 'boolean') usingJSON = usingJson;
+  
+  if(isProbablyDev ())
+  {
+    usingJSON = false;
+    json = '';
+  }
   viewportStarted = false;
 
   if (scrollFix)
@@ -2878,7 +2897,13 @@ export default async function init({
   return fluidScale;
 }
 
+function isProbablyDev() {
 
+  if (typeof __ENV__ !== 'undefined' && __ENV__ === 'development')
+    return true;
+  
+  return location.hostname === 'localhost' || (location.hostname === '127.0.0.1' && location.port === '5000' );
+}
 function findMap(array, mapFn) {
   for (const item of array) {
     const result = mapFn(item);

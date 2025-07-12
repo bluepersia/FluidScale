@@ -1,6 +1,13 @@
 # Changelog
 
-## [0.0.1674-alpha]- 2025-07-12
+## [0.0.1675-alpha]- 2025-07-12
+
+### Added
+
+1. JSON loading deactivated in 'dev' mode.
+2. `usingJSON` flag to halt stylesheet parsing.
+
+## [0.0.1674-alpha]- 2025-07-11
 
 ### Modified
 

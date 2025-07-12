@@ -9,6 +9,8 @@
 
 1. Performance optimization - only compute what's on screen, set the rest to defaults.
 2. Custom scroll anchoring algorithm. Read more below.
+3. JSON loading is deactivated in 'dev' mode. Read more below.
+4. `usingJSON` flag to halt stylesheet parsing. Read more below.
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
@@ -73,6 +75,16 @@ Once done and you've tested everything in dev mode, build the JSON
 `npx fluid-build`
 
 FluidScale will now load asynchronously from JSON while the default values are applied instantly on load.
+
+**Note:** JSON loading is deactivated during 'dev mode' for seamless editing. If you are running a dev mode using live-server, run it on port 5000 to signal 'dev mode'. Anything served over `localhost` is considered dev mode.
+
+**Important:** If you are using an app-wide initializer for global settings, and page-level initializer for each JSON region, you should use:
+
+```js
+fluidScale({usingJSON = true})
+```
+
+In your app-wide initializer. This prevents stylesheet parsing even when you don't pass a JSON ID.
 
 **Important: JSON output may collide if several people use privately. Kindly ask the team to integrate `npx fluid-build` into the build pipeline - it costs end-users nothing.**
 
