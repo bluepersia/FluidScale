@@ -1,0 +1,42 @@
+{
+  "name": "fluid-scale",
+  "version": "0.0.1675-alpha",
+  "description": "Create beautiful fluid responsive designs easily.",
+  "main": "./fluidScale.js",
+  "types": "fluidScale.d.ts",
+  "author": {
+    "name": "Marco Zimmermann",
+    "email": "marcoenriquezimmermann@gmail.com",
+    "url": "https://github.com/bluepersia"
+  },
+  "exports": {
+    ".": "./fluidScale.js"
+  },
+  "bugs": {
+    "url": "https://github.com/bluepersia/FluidScale/issues"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "bin": {
+    "fluid-build": "./bin/jsonBuilder.js",
+    "fluid-install-react": "./bin/installReact.js"
+  },
+  "keywords": [
+    "fluid",
+    "design",
+    "responsive",
+    "easy",
+    "fast"
+  ],
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "globby": "^14.1.0",
+    "jsdom": "^26.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bluepersia/FluidScale"
+  }
+}
