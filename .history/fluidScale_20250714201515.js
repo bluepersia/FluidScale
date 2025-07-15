@@ -586,8 +586,8 @@ class FluidScale {
     }
     if(!this.startedAnimate)
     {
-      this.startedAnimate = true;
       waitForPageLoad().then(() => {
+        this.startedAnimate = true;
         requestAnimationFrame (this.animateBound);
       });
     }
@@ -1134,15 +1134,12 @@ class FluidProperty {
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
-        if (typeof val === 'string')
-          return val;
-
         const maxRaw = breakpointValues.maxValues[index];
-
         const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
-        
-        if(typeof maxRaw === 'string')
+        if(typeof val === 'string' || typeof maxRaw === 'string')
+        {
           return minVal;
+        }
         
 
       if(Array.isArray (minVal) && minVal[0] === 'break')

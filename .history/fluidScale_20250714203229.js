@@ -1134,15 +1134,14 @@ class FluidProperty {
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
-        if (typeof val === 'string')
-          return val;
-
         const maxRaw = breakpointValues.maxValues[index];
-
+        
+        if(typeof val === 'string' || typeof maxRaw === 'string')
+          {
+            return val;
+          }
         const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
         
-        if(typeof maxRaw === 'string')
-          return minVal;
         
 
       if(Array.isArray (minVal) && minVal[0] === 'break')

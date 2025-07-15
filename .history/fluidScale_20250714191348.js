@@ -586,8 +586,8 @@ class FluidScale {
     }
     if(!this.startedAnimate)
     {
-      this.startedAnimate = true;
       waitForPageLoad().then(() => {
+        this.startedAnimate = true;
         requestAnimationFrame (this.animateBound);
       });
     }
@@ -1134,15 +1134,12 @@ class FluidProperty {
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
-        if (typeof val === 'string')
-          return val;
-
         const maxRaw = breakpointValues.maxValues[index];
-
         const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
-        
-        if(typeof maxRaw === 'string')
+        if(typeof val === 'string' || typeof maxRaw === 'string')
+        {
           return minVal;
+        }
         
 
       if(Array.isArray (minVal) && minVal[0] === 'break')
@@ -1533,14 +1530,13 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
     case "left":
       return 0 + pxValues.length > 0 ? pxValues[0] : 0;
     case "right":
-      return getCachedBoundingClientRect (el, boundClientRectCache).width - (pxValues.length > 0 ? pxValues[0] : 0);
+      return getCachedBoundingClientRect (el, boundClientRectCache).width + pxValues.length > 0 ? pxValues[0] : 0;
     case "bottom":
- 
-      return getCachedBoundingClientRect (el, boundClientRectCache).height - (pxValues.length > 0 ? pxValues[0] : 0);
+      return getCachedBoundingClientRect (el, boundClientRectCache).height + pxValues.length > 0 ? pxValues[0] : 0;
     case "h-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).width / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
+      return (getCachedBoundingClientRect (el, boundClientRectCache).width / 2 ) + pxValues.length > 0 ? pxValues[0] : 0;
     case "v-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).height / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
+      return (getCachedBoundingClientRect (el, boundClientRectCache).height / 2 ) + pxValues.length > 0 ? pxValues[0] : 0;
     case "min":
       return Math.min (...pxValues);
     case "max":
@@ -1912,6 +1908,7 @@ function parseAllCalcs(value) {
         const nextIsNumber = next !== 'left' && next !== 'right' && next !== 'top' && next !== 'bottom' && next !== 'center';
         if (part === 'center')
         {
+          console.log (index);
           if (index === 0)
             part = 'h-center';
           else 
@@ -2250,13 +2247,8 @@ function extractExplicitValue (rule, explicitData)
       const index = symmetryMap.get(shorthandValSpl.length)[posId];
       const val = shorthandValSpl[index];
 
-      if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom' || val === 'center'))
-      {
-        const next = shorthandValSpl[index + 1];
-
-        if(next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
-        return `${val} ${next}`;
-      }
+      if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom'))
+        return `${val} ${shorthandValSpl[index + 1]}`;
 
       return val;
     }
@@ -2451,7 +2443,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             }
           }
 
-            
+          
           if (!value && autoApply)
             value = extractExplicitValue (rule, explicitData);
           
@@ -2488,7 +2480,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           const doBreak = breakVal.includes ('all') || breakVal.includes (variableName) || breakVal.includes (shorthand);
           
           let allCalcsParsed = parseAllCalcs (value);
-      
+        
           if(doBreak)
           {
             allCalcsParsed = allCalcsParsed.map (v => ['break', [v]]);
@@ -2511,7 +2503,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
               for (let i = startIndex; i < mediaBps.length; i++) {
                 const { cssRules, width } = mediaBps[i];
-                const futureVal = findMapReverse(cssRules, r =>
+                const futureVal = findMap(cssRules, r =>
                   {
                     if(r.type === CSSRuleRef.STYLE_RULE &&
                       r.selectorText.split(',').map(s => s.trim()).includes (selector))
@@ -3039,13 +3031,6 @@ function isProbablyDev() {
 function findMap(array, mapFn) {
   for (const item of array) {
     const result = mapFn(item);
-    if (result) return result;
-  }
-  return undefined;
-}
-function findMapReverse(array, mapFn) {
-  for (let i = array.length - 1; i >= 0; i--) {
-    const result = mapFn(array[i]);
     if (result) return result;
   }
   return undefined;

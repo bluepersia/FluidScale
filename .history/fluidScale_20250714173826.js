@@ -395,7 +395,7 @@ class FluidScale {
 
     let wasParsed = stylesParsed;
 
-    await parseStyles (json, checkUsage);
+    parseStyles (json, checkUsage);
 
     this.breakpoints = bps || breakpoints;
     this.minBreakpoint = minBp || minBreakpoint || this.breakpoints[0];
@@ -585,12 +585,7 @@ class FluidScale {
     if (this.observeRemove) {
     }
     if(!this.startedAnimate)
-    {
-      this.startedAnimate = true;
-      waitForPageLoad().then(() => {
-        requestAnimationFrame (this.animateBound);
-      });
-    }
+      requestAnimationFrame (this.animateBound);
   }
 
   removeElements(els) {
@@ -603,6 +598,8 @@ class FluidScale {
  
   animate ()
   {
+    this.startedAnimate = true;
+
     if(this.destroyed)
       return;
 
@@ -1128,21 +1125,20 @@ class FluidProperty {
     let values;
 
     this.el.calcedPerc = false;
- 
+    
+    if (this.propertyName.includes ('background-position'))
+      console.log (breakpointValues.minValues);
     if(progress >= 1)
       values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
-        if (typeof val === 'string')
-          return val;
-
         const maxRaw = breakpointValues.maxValues[index];
-
         const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
-        
-        if(typeof maxRaw === 'string')
+        if(typeof val === 'string' || typeof maxRaw === 'string')
+        {
           return minVal;
+        }
         
 
       if(Array.isArray (minVal) && minVal[0] === 'break')
@@ -1529,18 +1525,6 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
   {
     case "break":
       return ['break', pxValues[0]];
-    case "top":
-    case "left":
-      return 0 + pxValues.length > 0 ? pxValues[0] : 0;
-    case "right":
-      return getCachedBoundingClientRect (el, boundClientRectCache).width - (pxValues.length > 0 ? pxValues[0] : 0);
-    case "bottom":
- 
-      return getCachedBoundingClientRect (el, boundClientRectCache).height - (pxValues.length > 0 ? pxValues[0] : 0);
-    case "h-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).width / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
-    case "v-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).height / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
     case "min":
       return Math.min (...pxValues);
     case "max":
@@ -1713,14 +1697,12 @@ let stylesParsed = false;
 
 let prevValues = {};
 
-async function parseStyles (json)
+function parseStyles (json)
 {
   if (usingJSON)
     return;
   
   if (!stylesParsed && (!json || jsonLoaded !==  json)) {
-
-    await waitForPageLoad ();
 
     // run once on load
     let sheets = checkUsage
@@ -1899,31 +1881,6 @@ function parseAllCalcs(value) {
   }
 
   if (current.trim()) parts.push(tryParseCalcs(current.trim()));   
-
-  
-  if (parts.includes ('top') || parts.includes ('left') || parts.includes ('right') || parts.includes ('bottom') || parts.includes ('center'))
-  {
-    const newParts = [];
-    for(let [index, part] of parts.entries ())
-    {
-      if(part === 'left' || part === 'top' || part === 'bottom' || part === 'right' || part === 'center')
-      {
-        const next = parts[index + 1];
-        const nextIsNumber = next !== 'left' && next !== 'right' && next !== 'top' && next !== 'bottom' && next !== 'center';
-        if (part === 'center')
-        {
-          if (index === 0)
-            part = 'h-center';
-          else 
-            part = 'v-center';
-        }
-        newParts.push (nextIsNumber ? [part, [next]] : [part, []]);
-      }
-    }
-
-    return newParts;
-
-  }
   return parts;
 }
 
@@ -2250,13 +2207,8 @@ function extractExplicitValue (rule, explicitData)
       const index = symmetryMap.get(shorthandValSpl.length)[posId];
       const val = shorthandValSpl[index];
 
-      if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom' || val === 'center'))
-      {
-        const next = shorthandValSpl[index + 1];
-
-        if(next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
-        return `${val} ${next}`;
-      }
+      if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom'))
+        return `${val} ${shorthandValSpl[index + 1]}`;
 
       return val;
     }
@@ -2451,7 +2403,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             }
           }
 
-            
+          
           if (!value && autoApply)
             value = extractExplicitValue (rule, explicitData);
           
@@ -2488,7 +2440,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           const doBreak = breakVal.includes ('all') || breakVal.includes (variableName) || breakVal.includes (shorthand);
           
           let allCalcsParsed = parseAllCalcs (value);
-      
+
           if(doBreak)
           {
             allCalcsParsed = allCalcsParsed.map (v => ['break', [v]]);
@@ -2511,7 +2463,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
               for (let i = startIndex; i < mediaBps.length; i++) {
                 const { cssRules, width } = mediaBps[i];
-                const futureVal = findMapReverse(cssRules, r =>
+                const futureVal = findMap(cssRules, r =>
                   {
                     if(r.type === CSSRuleRef.STYLE_RULE &&
                       r.selectorText.split(',').map(s => s.trim()).includes (selector))
@@ -2911,7 +2863,7 @@ function waitForPageLoad(checkInterval = 100) {
       resolve();
       return;
     }
-window.addEventListener ('load', () => resolve (), {once:true});
+document.addEventListener ('load', () => resolve (), {once:true});
   });
 }
 function waitForJSON(path, checkInterval = 100) {
@@ -2982,6 +2934,7 @@ export default async function init({
   if (typeof scrollFx === 'object' || typeof scrollFx === 'boolean') scrollFix = scrollFx;
   if (typeof usingJson === 'boolean') usingJSON = usingJson;
 
+  await waitForPageLoad ();
   
   if(isProbablyDev ())
   {
@@ -3003,7 +2956,7 @@ export default async function init({
       observerPaused = false;
     }
     else 
-      await parseStyles (json, checkUsage);
+      parseStyles (json, checkUsage);
 
     fluidScale.addElements(root);
   } else {
@@ -3039,13 +2992,6 @@ function isProbablyDev() {
 function findMap(array, mapFn) {
   for (const item of array) {
     const result = mapFn(item);
-    if (result) return result;
-  }
-  return undefined;
-}
-function findMapReverse(array, mapFn) {
-  for (let i = array.length - 1; i >= 0; i--) {
-    const result = mapFn(array[i]);
     if (result) return result;
   }
   return undefined;
