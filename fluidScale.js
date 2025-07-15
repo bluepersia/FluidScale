@@ -2091,7 +2091,7 @@ const explicitValues = {
 
   'flex-basis': [flexMap, 'flex', 'basis'],
 
-  'background-position-x': [backgroundMap, 'background-positon', 'x'],
+  'background-position-x': [backgroundMap, 'background-position', 'x'],
   'background-position-y': [backgroundMap, 'background-position', 'y']
 }
 
@@ -2236,6 +2236,43 @@ function parseUnit (val, property)
   return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
 }
 
+function isHorizontalBgPos (str)
+{
+  return str === 'left' || str === 'right';
+}
+
+function isVerticalBgPos (str)
+{
+  return str === 'top' || str === 'bottom';
+}
+
+function extractExplicitBgValueIndex (valSpl, posId)
+{
+  const rootFunc = posId === 'x' ? isHorizontalBgPos : isVerticalBgPos;
+  const otherFunc = posId === 'x' ? isVerticalBgPos : isHorizontalBgPos;
+
+  let index = valSpl.findIndex (v => rootFunc (v)); 
+
+  if (index !== -1)
+    return index;
+
+  const otherIndex = valSpl.findIndex (v => otherFunc (v));
+
+  if (otherIndex === 0)
+    index = 2;
+  else if (otherIndex === 2)
+    index = 0;
+  else 
+  {
+    if (posId === 'x')
+      index = 0;
+    else if (posId === 'y')
+      index = 2;
+  }
+
+  return index;
+}
+
 function extractExplicitValue (rule, explicitData)
 {
   if(explicitData)
@@ -2247,14 +2284,20 @@ function extractExplicitValue (rule, explicitData)
     {
       const shorthandValSpl = splitByOuterSpaces (shorthandVal);
 
-      const index = symmetryMap.get(shorthandValSpl.length)[posId];
+      let index = null;
+
+      if (shorthand === 'background-position' && shorthandValSpl.length > 2)
+            index = extractExplicitBgValueIndex (shorthandValSpl, posId);
+      else 
+            index = symmetryMap.get(shorthandValSpl.length)[posId];
+      
       const val = shorthandValSpl[index];
 
       if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom' || val === 'center'))
       {
         const next = shorthandValSpl[index + 1];
 
-        if(next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
+        if(next && next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
         return `${val} ${next}`;
       }
 
@@ -2433,6 +2476,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
 
           const explicitData = explicitValues[variableName];
+          
           const shorthand = explicitData?[1] : null;
          spanEnd = spanEnd || rule.style.getPropertyValue ('--span-end')?.split (',').map (s => s.trim()) || [];
           if (!value && (!minimizedMode || spanEnd.includes ('all') || spanEnd.includes (variableName))|| spanEnd.includes (shorthand))
@@ -2458,6 +2502,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
           if (!value || value.includes ('var(')) continue;
 
+          
           
           const spanValue = value;
 
@@ -2520,6 +2565,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
                       if(!futureV)
                         futureV = extractExplicitValue (r, explicitData);
+
+                 
 
                       if (!futureV)
                       {

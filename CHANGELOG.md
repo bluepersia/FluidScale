@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.0.1678-alpha]- 2025-07-15
+
+### Fixed
+
+Background position errors when building JSON.
+
 ## [0.0.1676-alpha]- 2025-07-14
 
 ### Fixed
