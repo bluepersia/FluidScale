@@ -462,10 +462,10 @@ class FluidScale {
 
   processAnchorData (el, anchor)
   {
-    const anchorData = this.fluidVariableSelectors.get (anchor);
-
-    if(!anchorData)
+    if (!this.fluidVariableSelectors.has (anchor))
       return;
+
+    const anchorData = this.fluidVariableSelectors.get (anchor);
 
     for(const [selectorText, variableArr] of anchorData)
     {
