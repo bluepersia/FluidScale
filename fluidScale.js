@@ -501,7 +501,6 @@ class FluidScale {
         el.fluidProperties.push (fluidProperty);
   }
   addElements(els) {
-    
     const time = performance.now ();
 
     els.forEach((el) => {
@@ -1042,7 +1041,7 @@ class FluidProperty {
     this.isSet = '';
     this.valuesByBreakpoint = valuesByBreakpoint;
 
-    //this.order  = valuesByBreakpoint.find (vbbp => vbbp).order;
+    this.order  = valuesByBreakpoint.find (vbbp => vbbp).order;
     /*breakpoints.map((bp, index) =>
       valuesByBreakpoint.find((vbbp) => vbbp?.bpIndex === index)
     );*/
