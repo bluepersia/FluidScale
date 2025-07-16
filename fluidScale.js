@@ -501,7 +501,7 @@ class FluidScale {
         el.fluidProperties.push (fluidProperty);
   }
   addElements(els) {
-
+    
     const time = performance.now ();
 
     els.forEach((el) => {
