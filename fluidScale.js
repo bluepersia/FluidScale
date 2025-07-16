@@ -480,7 +480,7 @@ class FluidScale {
 
         const classKey = getClassSelector(el);
 
-        if (this.classCache.has(classKey)) {
+        if (false && this.classCache.has(classKey)) {
           const classCacheArr = this.classCache.get(classKey);
           classCacheArr.forEach(({ variableName, arr, breakpoints, key }) => {
             const fluidProperty = FluidProperty.Parse(
