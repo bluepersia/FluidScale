@@ -461,6 +461,7 @@ class FluidScale {
   addElements(els) {
 
 
+    const time = performance.now ();
     els.forEach((el) => {
     
         if(!el.state)
@@ -560,7 +561,7 @@ class FluidScale {
           });
         }
       });
-
+      console.log (performance.now() - time);
     if (this.autoTransition) {
       const { time, easing, delay } =
         typeof this.autoTransition === 'object' ? this.autoTransition : {};
