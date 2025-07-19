@@ -415,6 +415,8 @@ class FluidScale {
 
     rootFontSizeChanged.push (this.updateBound);
 
+    this.fluidVariableSelectors = fluidVariableSelectors;
+    /*
     if (!json && (this.breakpoints !== breakpoints || wasParsed)) {
       if (!usingPartials)
         console.error(
@@ -439,7 +441,7 @@ class FluidScale {
           }
         }
       }
-    } else this.fluidVariableSelectors = fluidVariableSelectors;
+    } else this.fluidVariableSelectors = fluidVariableSelectors;*/
 
     if (elList) this.addElements(elList);
   }
@@ -458,8 +460,46 @@ class FluidScale {
   activeElements = new Set();
   allElementsSeen = [];
 
-  addElements(els) {
+  processAnchorData (el, anchor)
+  {
+    const anchorData = this.fluidVariableSelectors[anchor];
 
+    if (!anchorData)
+      return;
+
+    for(const [root, selectorText, variableArr] of anchorData)
+    {
+      if (!el.matches (root))
+        continue;
+
+      for (const [variableName, variableObjArr] of variableArr)
+      {
+        const first = variableObjArr[0];
+        first.selector = selectorText;
+        if (first.isPseudo || first.dynamic)
+          this.processVariableObjArrToFp (el, variableObjArr, variableName);
+        else 
+        {
+          const currentMain = el.mainFp[variableName];
+          if(!currentMain || currentMain[0].order < first.order)
+            el.mainFp[variableName] = variableObjArr;
+        }
+        
+      }
+    }
+  }
+
+  processVariableObjArrToFp (el, variableObjArr, variableName)
+  {
+        const vbbp = new Array (this.breakpoints.length);
+
+        for(const variableObj of variableObjArr)
+          vbbp[variableObj.bpIndex] = variableObj;
+
+        const fluidProperty = FluidProperty.Parse (el, variableName, vbbp, this.breakpoints, this.autoTransition, this.computedStyleCache, this.boundClientRectCache, this);
+        el.fluidProperties.push (fluidProperty);
+  }
+  addElements(els) {
 
     els.forEach((el) => {
     
@@ -470,13 +510,31 @@ class FluidScale {
         }
         const elFluidProperties = [];
         el.fluidProperties = elFluidProperties;
-
+        el.mainFp = {};
+        el.fs = this;
         let added = false;
 
 
         if (document.body.contains (el) && el !== document.body)
         interObserver.observe (el);
 
+       
+        if(el.classList.length > 0)
+        {
+          for(const klass of el.classList)
+          {
+            this.processAnchorData (el, `.${klass}`);
+          }
+
+          if (el.id)
+            this.processAnchorData (el, `#${el.id}`);
+
+          this.processAnchorData (el, el.tagName.toLowerCase ());
+        }
+
+      for(const [variableName, val] of Object.entries (el.mainFp))
+        this.processVariableObjArrToFp (el, val, variableName);
+/*
         const classKey = getClassSelector(el);
 
         if (this.classCache.has(classKey)) {
@@ -495,13 +553,13 @@ class FluidScale {
 
             elFluidProperties.push(fluidProperty);
             el.fs = this;
-            /*
+            
             if(!added)
             {
               this.activeElements.add (el);
               el.fluid = true;
               added = true;
-            }*/
+            }
           });
         } else {
           const classCacheArr = [];
@@ -547,7 +605,7 @@ class FluidScale {
                     this.activeElements.add (el);
                     el.fluid = true;
                     added = true;
-                  }*/
+                  }
                 el.fs = this;
                 classCacheArr.push({
                   variableName,
@@ -558,9 +616,9 @@ class FluidScale {
               }
             }
           });
-        }
+        }*/
       });
-
+      
     if (this.autoTransition) {
       const { time, easing, delay } =
         typeof this.autoTransition === 'object' ? this.autoTransition : {};
@@ -775,7 +833,7 @@ class FluidScale {
       for (const state of el.states)
       {
     
-        const { value, el, propertyName, fp, valueApplied} = state;
+        const { value, el, propertyName, fp, order, valueApplied} = state;
         
         const valueChanged = value !== valueApplied || state.inlineActive === false;
       
@@ -787,7 +845,7 @@ class FluidScale {
           if (value === null)
           {
             el.style.removeProperty (propertyName); 
-            this.postStateApply (state, value, fp);
+            this.postStateApply (state, value, order, fp);
           }
           else 
           {
@@ -814,7 +872,7 @@ class FluidScale {
               else 
               {
                 el.style.setProperty (propertyName, value);
-                this.postStateApply (state, value, fp);
+                this.postStateApply (state, value, order, fp);
                 if(this.autoTransition?.onlyStart)
                 {
                   if(state.isDelayed)
@@ -837,17 +895,19 @@ class FluidScale {
         state.dynamicChange = null
         state.value = null;
         state.fp = null;
+        state.order = -1;
       }
 
       el.resized = false;
   }
   
   
-postStateApply (state, value, fp)
+postStateApply (state, value, order, fp)
 {
   state.valueApplied = value;
   state.widthApplied = window.innerWidth;
   state.fpApplied = fp;
+  state.orderApplied = order;
 
   if(state.el.calcedPerc && !state.el.isObservingResize)
   {
@@ -977,16 +1037,17 @@ class FluidProperty {
     this.fs = fs;
     this.name = name;
     this.isSet = '';
-
-    this.valuesByBreakpoint = breakpoints.map((bp, index) =>
+    this.valuesByBreakpoint = valuesByBreakpoint;
+    
+    this.order  = valuesByBreakpoint.find (vbbp => vbbp).order;
+    /*breakpoints.map((bp, index) =>
       valuesByBreakpoint.find((vbbp) => vbbp?.bpIndex === index)
-    );
+    );*/
     this.breakpoints = breakpoints;
     this.computedStyleCache = computedStyleCache;
     this.boundClientRectCache = boundClientRectCache;
     this.active = true;
 
-   
     if(forceGPU)
       constructGPUVersion (this);
     
@@ -1010,7 +1071,7 @@ class FluidProperty {
     if (valuesByBreakpoint[0]?.dynamic)
     {
       const observedAttribs = ['class', ...valuesByBreakpoint[0].attribs || []];
-      const selector = valuesByBreakpoint[0].dynamic;
+      const selector = valuesByBreakpoint[0].selector;
       this.active = el.matches (selector);
       this.observer = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
@@ -1106,9 +1167,10 @@ class FluidProperty {
 
     let breakpointValues = this.valuesByBreakpoint[breakpointIndex];
 
+
+   
     if (!breakpointValues) return [];
 
-    this.order = breakpointValues.order;
 
     function calcProgress(breakpointMin, breakpointMax) {
       return Math.min(
@@ -1129,6 +1191,8 @@ class FluidProperty {
 
     this.el.calcedPerc = false;
  
+
+
     if(progress >= 1)
       values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
     else 
@@ -1288,8 +1352,10 @@ class FluidProperty {
     const isActive = this.isActive ();
     this._isActive = null;
     
-    state.dynamicChange = isActive !== this.lastIsActive;
+    if (isActive !== this.lastIsActive)
+      state.dynamicChange = true;
     
+
     this.lastIsActive = isActive;
 
     if(!isActive)
@@ -1298,6 +1364,8 @@ class FluidProperty {
     if (this.el.isHidden)
       return;
 
+    if (this.order < state.order)
+      return;
 
     if(window.innerWidth === this.state.widthApplied && !this.el.resized && !state.lastDynamicChange && state.fpApplied?.isActive())
     {
@@ -1305,6 +1373,7 @@ class FluidProperty {
       {
         state.fp = state.fpApplied;
         state.value = state.valueApplied;
+        state.order = state.orderApplied;
       }
       return;
     }
@@ -1316,6 +1385,7 @@ class FluidProperty {
 
     
     state.fp = this;
+    state.order = this.order;
     if (autoApply) {
 
       if (this.name === 'grid-auto' || this.name === 'grid-auto-fit')
@@ -1719,9 +1789,8 @@ async function parseStyles (json)
     return;
   
   if (!stylesParsed && (!json || jsonLoaded !==  json)) {
-
+   
     await waitForPageLoad ();
-
     // run once on load
     let sheets = checkUsage
       ? document.styleSheets.filter((sheet) => {
@@ -1752,7 +1821,6 @@ async function parseStyles (json)
         }
       })       
       parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
-
     stylesParsed = true;
   }
 }
@@ -2091,7 +2159,7 @@ const explicitValues = {
 
   'flex-basis': [flexMap, 'flex', 'basis'],
 
-  'background-position-x': [backgroundMap, 'background-positon', 'x'],
+  'background-position-x': [backgroundMap, 'background-position', 'x'],
   'background-position-y': [backgroundMap, 'background-position', 'y']
 }
 
@@ -2236,6 +2304,43 @@ function parseUnit (val, property)
   return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
 }
 
+function isHorizontalBgPos (str)
+{
+  return str === 'left' || str === 'right';
+}
+
+function isVerticalBgPos (str)
+{
+  return str === 'top' || str === 'bottom';
+}
+
+function extractExplicitBgValueIndex (valSpl, posId)
+{
+  const rootFunc = posId === 'x' ? isHorizontalBgPos : isVerticalBgPos;
+  const otherFunc = posId === 'x' ? isVerticalBgPos : isHorizontalBgPos;
+
+  let index = valSpl.findIndex (v => rootFunc (v)); 
+
+  if (index !== -1)
+    return index;
+
+  const otherIndex = valSpl.findIndex (v => otherFunc (v));
+
+  if (otherIndex === 0)
+    index = 2;
+  else if (otherIndex === 2)
+    index = 0;
+  else 
+  {
+    if (posId === 'x')
+      index = 0;
+    else if (posId === 'y')
+      index = 2;
+  }
+
+  return index;
+}
+
 function extractExplicitValue (rule, explicitData)
 {
   if(explicitData)
@@ -2247,14 +2352,20 @@ function extractExplicitValue (rule, explicitData)
     {
       const shorthandValSpl = splitByOuterSpaces (shorthandVal);
 
-      const index = symmetryMap.get(shorthandValSpl.length)[posId];
+      let index = null;
+
+      if (shorthand === 'background-position' && shorthandValSpl.length > 2)
+            index = extractExplicitBgValueIndex (shorthandValSpl, posId);
+      else 
+            index = symmetryMap.get(shorthandValSpl.length)[posId];
+      
       const val = shorthandValSpl[index];
 
       if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom' || val === 'center'))
       {
         const next = shorthandValSpl[index + 1];
 
-        if(next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
+        if(next && next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
         return `${val} ${next}`;
       }
 
@@ -2330,7 +2441,7 @@ function processComments(rule) {
   rule.comments = comments;
 }
 
-function parseRules(rules, bpIndex = 0, bp = 0) {
+function parseRules(rules, bpIndex = 0) {
 
   if(!CSSRuleRef)
     CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule :  findCSSRuleConstructor (rules);
@@ -2398,7 +2509,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       processComments(rule);
       let nextBp = rule.nextBp;
 
-      bp = bpIndex !== -1 ? bpIndex : bp;
+      //bp = bpIndex !== -1 ? bpIndex : bp;
 
       let nextBpIndex = breakpoints
         ? nextBp
@@ -2421,6 +2532,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           if(autoApply && shorthandValues[variableName])
             continue;
 
+
           let value;
 
           if (bps && !minimizedMode) {
@@ -2433,7 +2545,9 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
 
           const explicitData = explicitValues[variableName];
-          const shorthand = explicitData?[1] : null;
+          
+          const shorthand = explicitData ? explicitData[1] : null;
+          
          spanEnd = spanEnd || rule.style.getPropertyValue ('--span-end')?.split (',').map (s => s.trim()) || [];
           if (!value && (!minimizedMode || spanEnd.includes ('all') || spanEnd.includes (variableName))|| spanEnd.includes (shorthand))
           {
@@ -2458,6 +2572,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
           if (!value || value.includes ('var(')) continue;
 
+          
           
           const spanValue = value;
 
@@ -2488,12 +2603,12 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           const doBreak = breakVal.includes ('all') || breakVal.includes (variableName) || breakVal.includes (shorthand);
           
           let allCalcsParsed = parseAllCalcs (value);
-      
+          
           if(doBreak)
           {
             allCalcsParsed = allCalcsParsed.map (v => ['break', [v]]);
           }
-        
+          
           let minValues
           let maxValues;
           let isCombo = false;
@@ -2507,8 +2622,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
               const startIndex = mediaBps.findIndex(
                 ({ width }) => width === breakpoints[bpIndex + 1]
               );
-              if (startIndex === -1) continue;
-
+              if (startIndex !== -1) {
+     
               for (let i = startIndex; i < mediaBps.length; i++) {
                 const { cssRules, width } = mediaBps[i];
                 const futureVal = findMapReverse(cssRules, r =>
@@ -2520,6 +2635,8 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
                       if(!futureV)
                         futureV = extractExplicitValue (r, explicitData);
+
+                 
 
                       if (!futureV)
                       {
@@ -2612,6 +2729,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
                   break;
                 }
               }
+              }
             }
           
             if (!maxVal) {
@@ -2622,9 +2740,11 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
 
               if (!maxVal) {
                 force = force || rule.style.getPropertyValue ('--force')?.split(',').map(s => s.trim()) || [];
-
+                
+                
+           
                 if (force.includes ('all') || force.includes (variableName) || force.includes (shorthand))
-                {
+                {     
                   nextBpIndex = breakpoints.length - 1;
                   nextBp = breakpoints[nextBpIndex];
                   maxValues = minValues;
@@ -2694,7 +2814,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
           }
           );*/
 
-          let bpApply =  bp;
+          //let bpApply =  bp;
           let bpIndexApply = bpIndex;
 
 
@@ -2722,37 +2842,60 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
             }
           }
 
-          if (root !== selector)
-            root = `${root}/${selector}`;
+          const chain = root.split (' ');
+          const anchor = chain[chain.length - 1];
+          //if (root !== selector)
+            //root = `${root}/${selector}`;
 
-          if (!bps) fluidVariableSelectors[root] = bps = new Map();
+          let anchorData = fluidVariableSelectors[anchor];
 
+
+          if(!anchorData)
+            anchorData = fluidVariableSelectors[anchor] = [];
+
+          let selectorData = anchorData.find (([root, selectorText]) => selectorText === selector);
+
+          if (!selectorData)
+          {
+            selectorData = [root, selector, []];
+            anchorData.push (selectorData);
+          }
+
+          let variableData = selectorData[2].find (([name]) => name === variableName);
+
+          if(!variableData)
+          {
+            variableData = [variableName, []];
+            selectorData[2].push (variableData);
+          }
+          //if (!bps) fluidVariableSelectors[root] = bps = new Map();
+
+          /*
           let bpMap;
-          if (bps.has(bp)) bpMap = bps.get(bp);
+          if (bps.has(bpIndex)) bpMap = bps.get(bpIndex);
           else {
             bpMap = {};
-            bps.set(bp, bpMap);
+            bps.set(bpIndex, bpMap);
           }
           
-          
-          const variableObj = (bpMap[variableName] = {
-            selector,
+          */
+          const variableObj ={
             minValues,
             maxValues,
             minUnits,
             maxUnits,
-            variableName,
-            order: rule.order
-          });
+          };
           
+          variableData[1].push (variableObj);
           
           if (isCombo) variableObj.isCombo = true;
           if (bpIndexApply !== -1) variableObj.bpIndex = bpIndexApply;
-          if (bpApply) variableObj.bp = bpApply;
+          //if (bpApply) variableObj.bp = bpApply;
           if (nextBp) variableObj.nextBp = nextBp;
           if (nextBpIndex) variableObj.nextBpIndex = nextBpIndex;
           if (transition) variableObj.transition = transition;
-          if (dynamic) variableObj.dynamic = selector;
+          if (dynamic) variableObj.dynamic = true;
+          if(variableData[1].length <= 1) variableObj.order = rule.order;
           if (attribs.length > 0) variableObj.attribs = attribs;
           if (isPseudo) variableObj.isPseudo = true;
         }
@@ -2760,7 +2903,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
     }
   }
   if (bpIndex === 0) {
-    
+   
     for (const { cssRules, width } of mediaBps) {
       const index = breakpoints.indexOf (width);
       if (autoBreakpoints && index === 0) continue;
@@ -2772,6 +2915,7 @@ function parseRules(rules, bpIndex = 0, bp = 0) {
       );
     }
   }
+  
 }
 
 function stripPseudoSelectors(selector) {
@@ -3003,8 +3147,10 @@ export default async function init({
       observerPaused = false;
     }
     else 
+    {
+      stylesParsed = false;
       await parseStyles (json, checkUsage);
-
+    }
     fluidScale.addElements(root);
   } else {
     const fs = await FluidScale.create (root, breakpoints, {
