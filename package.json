@@ -1,6 +1,6 @@
 {
   "name": "fluid-scale",
-  "version": "0.0.1678-alpha",
+  "version": "0.0.1679-alpha",
   "description": "Create beautiful fluid responsive designs easily.",
   "main": "./fluidScale.js",
   "types": "fluidScale.d.ts",
