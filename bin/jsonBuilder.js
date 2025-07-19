@@ -135,6 +135,7 @@ async function generateFluidRulesJSON() {
     })
 
     const rules = sheets.map (sheet => Array.from (sheet.cssRules)).flat();
+ 
     parseRules(rules, 0);
     
     const outPath = path.join('public', outputDir, `${key}.json`);

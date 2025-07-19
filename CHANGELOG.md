@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.0.1679-alpha]- 2025-07-18
+
+### Modified
+
+New data structure + loading algorithm. Just as fast, but safer.
+
+### Fixed
+
+Shorthands bug fix.
+Future media rule bug fix.
+
 ## [0.0.1678-alpha]- 2025-07-15
 
 ### Fixed
