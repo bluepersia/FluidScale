@@ -494,10 +494,7 @@ class FluidScale {
           vbbp[variableObj.bpIndex] = variableObj;
 
         const fluidProperty = FluidProperty.Parse (el, variableName, vbbp, this.breakpoints, this.autoTransition, this.computedStyleCache, this.boundClientRectCache, this);
-        if (variableName.includes ('gap'))
-          el.fluidProperties.unshift (fluidProperty);
-        else 
-          el.fluidProperties.push (fluidProperty);
+        el.fluidProperties.push (fluidProperty);
   }
   addElements(els) {
 
@@ -829,8 +826,6 @@ class FluidScale {
       }
 
       el.calcedPerc = false;
-      el.paddingLeft = -1;
-      el.paddingRight = -1;
 
       for (const fp of el.fluidProperties)
         fp.update (this.currentBpIndex, this.currentWidth);
@@ -1121,8 +1116,6 @@ class FluidProperty {
       }
 
     this.propertyName = propertyName;
-    this.isGap = propertyName.includes ('gap');
-    this.isGrid = propertyName.includes ('grid');
     //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
 
     let state = el.state[propertyName];
@@ -1166,34 +1159,6 @@ class FluidProperty {
     if (this.observer)
       this.observer.disconnect ();
   }
-
-  allocateFr (values, units, zone)
-  {
-    const units = progress >= 1 ? breakpointValues.maxUnits.map (u => u === 'fr' ? 'fr' : Array.isArray (u) ? u : 'px') : breakpointValues.minUnits.map (u => u === 'fr' ? 'fr' : Array.isArray (u) ? u : 'px');
-
-let totalFrUnits = 0;
-let usedWidth = 0;
-
-for (const [index, val] of values.entries ()) {
-  const unit = units[index];
-
-  if (Array.isArray (unit) && unit[1][1] === 'fr')
-    totalFrUnits += val[1][1];
-  else 
-  if (unit === "fr") {
-    totalFrUnits += val;
-  } else {
-    usedWidth += val;
-  }
-}
-
-
-const remaining = totalWidth - padding - usedWidth - totalGapVal;
-
-
-this.el.availableSpace = remaining;
-this.el.totalFrUnits = totalFrUnits;
-  }
   getValues(breakpointIndex, currentWidth) {
     
     if (breakpointIndex >= this.breakpoints.length - 1)
@@ -1224,80 +1189,22 @@ this.el.totalFrUnits = totalFrUnits;
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
-    let values = progress >= 1 ? breakpointValues.maxValues : breakpointValues.minValues;
-    let minValues;
-    let maxValues;
+    let values;
+
  
-    let explicitGapName;
-    let gap;
-    let totalWidth;
-    let padding;
-    let totalGapVal;
-    if (this.isGrid)
-    {
-      const style = getCachedComputedStyle (this.el, this.computedStyleCache);
-      totalWidth = getCachedBoundingClientRect(this.el, this.boundClientRectCache).width;
-      padding = getPadding (style, this.el, this.computedStyleCache, this.boundClientRectCache);
-      explicitGapName = this.propertyName === 'grid-template-columns' ? 'column-gap' : 'row-gap';
-      gap = this.el[explicitGapName];
-      if (!gap)
-      {
-        const str = style[explicitGapName];
-        if(str)
-        {
-          const unit = extractUnit (str, explicitGapName);
-          const gapVal = parseSingleVal (str);
-          gap = convertToPx (gapVal, unit, explicitGapName, this.el, this.computedStyleCache, this.boundClientRectCache);
-        }
-      }
-
-      if(!gap)
-      {
-        gap = this.el.gapVal;
-
-        if (!gap)
-        {
-          const str = style.gap;
-          const unit = extractUnit (str, 'gap');
-          const val = parseSingleVal (str);
-          gap = convertToPx (val, unit, 'gap', this.el, this.computedStyleCache, this.boundClientRectCache);
-        }
-      }
-      gap = gap || 0;
-
-      const gapCount = values.length - 1;
-      totalGapVal = gapCount * gap;   
-
-      this.el.totalGapVal = totalGapVal;
-      this.el[explicitGapName] = gap;
-      this.el.gridWidth = totalWidth - padding;
-      this.el.columnsCount = values.length;
-    }
 
 
     if(progress >= 1)
-      values = values.map((maxVal, index) => { 
-        const unit = breakpointValues.maxUnits[index];
-      
-        if(unit === 'fr' || (Array.isArray (maxVal) && maxVal[0] === 'minmax'))
-          return maxVal;
-
-        return computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache)
-      })
+      values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
     else 
-      values = values.map((val, index) => {
-       
-        const minUnit = breakpointValues.minUnits[index];
-
-        if(minUnit === 'fr' || (Array.isArray (val) && val[0] === 'minmax'))
-          return val;
-
+      values = breakpointValues.minValues.map((val, index) => {
+        
         if (typeof val === 'string')
           return val;
 
         const maxRaw = breakpointValues.maxValues[index];
 
-        const minVal = computeVal (val, minUnit, this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+        const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
         
         if(typeof maxRaw === 'string')
           return minVal;
@@ -1315,28 +1222,7 @@ this.el.totalFrUnits = totalFrUnits;
         
         return minVal + (rangeValue * progress);
       });
-
-      if(this.isGap)
-      {
-        const val = values[0];
-        this.el[this.propertyName] = val;
-        this.el.gapVal = val;
-      }
-      else 
-if(this.isGrid)
-{
-
-
-  values = values.map ((val, index) => 
-  {
-    let unit = progress >= 1 ? breakpointValues.maxUnits[index] : breakpointValues.minUnits[index];
-
-    if (unit === 'fr' || Array.isArray (unit))
-      return computeVal (val, unit, this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
-    
-    return val;
-  });
-}   
+   
     if (this.customTransition)
     {
       if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
@@ -1752,15 +1638,16 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
      return evaluateCalc (pxValues.join(' '));
     case "minmax":
       const style = getCachedComputedStyle (el, computedStyleCache);
-     
       switch(property)
       {
-        case "grid-auto":
         case "grid-auto-fit":
         case "grid-auto-fill": {
-          const gap = el.columnGap;
+          const gap = style.columnGap || style.gap || 0;
+          const gapProperty = style.columnGap ? 'column-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
        
-          return computeAutoFitGrid (el.gridWidth, pxValues[0], pxValues[1], gap);
+          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).width, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
         }
         case "grid-auto-fit-rows":
         case "grid-auto-fill-rows": {
@@ -1770,25 +1657,6 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
           const gapUnit = extractUnit (gap, gapProperty);
           return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).height, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
         }
-
-        case "grid-template-columns":
-        case "grid-template-rows":
-          {
-            if (el.columnsCount <= 0) return 0;
-
-            const availableWidth = el.gridWidth - el.totalGapVal;
-
-            let trackWidth = availableWidth / el.columnsCount;
-
-            if(trackWidth < pxValues[0])
-              return pxValues[0];
-
-            if (trackWidth > pxValues[1])
-              return pxValues[1];
-
-            return trackWidth;
-          }
-        break;
       }
 
       return Math.max(pxValues[0], pxValues[1]);
@@ -1803,8 +1671,6 @@ function evaluateCalc(expression) {
   return new Function(`return (${expression})`)();
 }
 function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0) {
-  
-  console.log (containerWidth);
   const totalGap = (n) => (n - 1) * gap;
 
   // Try to fit as many tracks of `minTrackSize` as possible
@@ -1833,17 +1699,6 @@ function convertToPx (val, unit, property, el, computedStyleCache, boundClientRe
   {
     case "px":
       return val;
-
-    case "fr": {
-     const remaining = el.availableSpace;
-     const totalFrUnits = el.totalFrUnits;
-
-      if (remaining < 0) return 0;
-      if (totalFrUnits === 0) return 0;
-    
-      const pxPerFr = remaining / totalFrUnits;
-      return pxPerFr * val;
-    }
     case "rem":
       return val * rootFontSize;
     case "em":
@@ -1870,7 +1725,9 @@ function convertToPx (val, unit, property, el, computedStyleCache, boundClientRe
           return (val / 100) * (getCachedBoundingClientRect (el.parentElement, boundClientRectCache).height - padding);
       }
       
-      const padding = getPadding (parentStyle, parentEl, computedStyleCache, boundClientRectCache);
+      const padLeft = parentStyle.paddingLeft
+      const padRight = parentStyle.paddingRight;
+      const padding = convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', parentEl, computedStyleCache, boundClientRectCache) + convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', parentEl, computedStyleCache, boundClientRectCache);
       
       return (val / 100) * (getCachedBoundingClientRect(el.parentElement, boundClientRectCache).width - padding);
 
@@ -1930,18 +1787,6 @@ function applyEasing (easing, t)
     : -1 + (4 - 2 * t) * t;
 
   return t;
-}
-
-function getPadding (style, el, computedStyleCache, boundClientRectCache)
-{
-  const padLeft = style.paddingLeft;
-  const padRight = style.paddingRight;
-  const padLeftPx = el.paddingLeft > -1 ? el.paddingLeft : convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', el, computedStyleCache, boundClientRectCache);
-  const padRightPx = el.paddingRight > -1 ? el.paddingRight : convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', el, computedStyleCache, boundClientRectCache);
-  el.paddingLeft = padLeftPx;
-  el.paddingRight = padRightPx;
-
-  return padLeftPx + padRightPx;
 }
 
 // before FluidScale …
@@ -2431,9 +2276,8 @@ function parseGridTemplateColumns(value) {
 }
 
 function parseRepeat(value) {
- 
   if (!value.includes('repeat')) return value;
-  
+
   const start = value.indexOf('repeat(');
   if (start === -1) return null;
 
@@ -2789,7 +2633,7 @@ function parseRules(rules, bpIndex = 0) {
           {
             value = parseRepeat (value);
           }
-     
+
           spanStart = spanStart || rule.style.getPropertyValue ('--span-start')?.split(',').map (s => s.trim()) || [];
           if (!minimizedMode || spanStart.includes ('all') || spanStart.includes (variableName) || spanStart.includes (shorthand)) {
             if (!prevValues[selector])
@@ -3116,7 +2960,6 @@ function parseRules(rules, bpIndex = 0) {
         width
       );
     }
-    console.log (fluidVariableSelectors);
   }
   
 }
