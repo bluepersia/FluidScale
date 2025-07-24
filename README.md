@@ -5,10 +5,6 @@
 
 [Multi-page website preview](https://designo-website-sl64.vercel.app/)<br>
 
-**Latest update**:
-New data structure + loading algorithm. Just as fast, but safer.
-Shorthands and future media rules bug fixes.
-
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
 Write:

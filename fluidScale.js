@@ -368,18 +368,15 @@ class FluidScale {
   minBreakpoint = 300;
   maxBreakpoint = 1085;
 
-  static async create (elList, bps, config = {})
+  static async create (el, bps, config = {})
   {
-    if (elList && !Array.isArray(elList))
-      elList = [elList, ...elList.querySelectorAll('*')];
-
-    const fs = new FluidScale (elList, config);
-    await fs.init (elList, bps, config);
+    const fs = new FluidScale (el, config);
+    await fs.init (el, bps, config);
     return fs;
   }
-  constructor(elList, config = {}) {
+  constructor(el, config = {}) {
     if (config.observeDestroy) {
-      this.element = elList[0];
+      this.element = el;
       this.parent = this.element.parentElement;
       this.observer = new MutationObserver(this.onMutation.bind(this));
       this.observer.observe(this.parent, { childList: true });
@@ -387,7 +384,7 @@ class FluidScale {
   }
 
   async init(
-    elList,
+    el,
     bps,
     { minBp, maxBp, json, autoTransition = true }
   ) {
@@ -443,7 +440,7 @@ class FluidScale {
       }
     } else this.fluidVariableSelectors = fluidVariableSelectors;*/
 
-    if (elList) this.addElements(elList);
+    if (el) this.addElements([el, ...el.querySelectorAll('*')]);
   }
 
   onMutation(mutations) {
@@ -497,11 +494,15 @@ class FluidScale {
           vbbp[variableObj.bpIndex] = variableObj;
 
         const fluidProperty = FluidProperty.Parse (el, variableName, vbbp, this.breakpoints, this.autoTransition, this.computedStyleCache, this.boundClientRectCache, this);
-        el.fluidProperties.push (fluidProperty);
+        if (variableName.includes ('gap'))
+          el.fluidProperties.unshift (fluidProperty);
+        else 
+          el.fluidProperties.push (fluidProperty);
   }
   addElements(els) {
 
     const time = performance.now ();
+    
     els.forEach((el) => {
     
         if(!el.state)
@@ -810,7 +811,7 @@ class FluidScale {
 */
     }
 
-    this.lastWindowWidth = this.currentWidth;
+    this.lastWindowWidth = window.innerWidth;
     this.updateAboveViewport = false;
     if(viewportStarted)
       this.started = true;
@@ -826,6 +827,10 @@ class FluidScale {
         elsToRemove.push (el)
         return;
       }
+
+      el.calcedPerc = false;
+      el.paddingLeft = -1;
+      el.paddingRight = -1;
 
       for (const fp of el.fluidProperties)
         fp.update (this.currentBpIndex, this.currentWidth);
@@ -912,10 +917,11 @@ postStateApply (state, value, order, fp)
 
   if(state.el.calcedPerc && !state.el.isObservingResize)
   {
+    
     if (!state.el.resizeObserver)
     state.el.resizeObserver = new ResizeObserver (() =>
     {
-     
+
       if (state.el.calcedPerc)
         state.el.resized = true;
     });
@@ -929,7 +935,7 @@ postStateApply (state, value, order, fp)
 {
    //let justShifted;
     
-     /* 
+    /* 
     if (topEl)
     {
       if(this.lastTopEl && topEl !== this.lastTopEl)
@@ -939,7 +945,7 @@ postStateApply (state, value, order, fp)
     }
 
     this.lastTopEl = topEl;
-    
+     
  
     if(this.currentWidth < this.lastWindowWidth)
       elsAboveViewport.forEach (el => {
@@ -959,7 +965,7 @@ postStateApply (state, value, order, fp)
           el.locked = true;
         }
       })*/
-        const didShift = this.currentWidth !== this.lastWindowWidth;
+        const didShift = window.innerWidth !== this.lastWindowWidth;
 
         if(didShift)
           isUserScrolling = false;
@@ -1115,6 +1121,8 @@ class FluidProperty {
       }
 
     this.propertyName = propertyName;
+    this.isGap = propertyName.includes ('gap');
+    this.isGrid = propertyName.includes ('grid');
     //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
 
     let state = el.state[propertyName];
@@ -1158,6 +1166,34 @@ class FluidProperty {
     if (this.observer)
       this.observer.disconnect ();
   }
+
+  allocateFr (values, units, zone)
+  {
+    const units = progress >= 1 ? breakpointValues.maxUnits.map (u => u === 'fr' ? 'fr' : Array.isArray (u) ? u : 'px') : breakpointValues.minUnits.map (u => u === 'fr' ? 'fr' : Array.isArray (u) ? u : 'px');
+
+let totalFrUnits = 0;
+let usedWidth = 0;
+
+for (const [index, val] of values.entries ()) {
+  const unit = units[index];
+
+  if (Array.isArray (unit) && unit[1][1] === 'fr')
+    totalFrUnits += val[1][1];
+  else 
+  if (unit === "fr") {
+    totalFrUnits += val;
+  } else {
+    usedWidth += val;
+  }
+}
+
+
+const remaining = totalWidth - padding - usedWidth - totalGapVal;
+
+
+this.el.availableSpace = remaining;
+this.el.totalFrUnits = totalFrUnits;
+  }
   getValues(breakpointIndex, currentWidth) {
     
     if (breakpointIndex >= this.breakpoints.length - 1)
@@ -1188,23 +1224,80 @@ class FluidProperty {
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
-    let values;
-
-    this.el.calcedPerc = false;
+    let values = progress >= 1 ? breakpointValues.maxValues : breakpointValues.minValues;
+    let minValues;
+    let maxValues;
  
+    let explicitGapName;
+    let gap;
+    let totalWidth;
+    let padding;
+    let totalGapVal;
+    if (this.isGrid)
+    {
+      const style = getCachedComputedStyle (this.el, this.computedStyleCache);
+      totalWidth = getCachedBoundingClientRect(this.el, this.boundClientRectCache).width;
+      padding = getPadding (style, this.el, this.computedStyleCache, this.boundClientRectCache);
+      explicitGapName = this.propertyName === 'grid-template-columns' ? 'column-gap' : 'row-gap';
+      gap = this.el[explicitGapName];
+      if (!gap)
+      {
+        const str = style[explicitGapName];
+        if(str)
+        {
+          const unit = extractUnit (str, explicitGapName);
+          const gapVal = parseSingleVal (str);
+          gap = convertToPx (gapVal, unit, explicitGapName, this.el, this.computedStyleCache, this.boundClientRectCache);
+        }
+      }
+
+      if(!gap)
+      {
+        gap = this.el.gapVal;
+
+        if (!gap)
+        {
+          const str = style.gap;
+          const unit = extractUnit (str, 'gap');
+          const val = parseSingleVal (str);
+          gap = convertToPx (val, unit, 'gap', this.el, this.computedStyleCache, this.boundClientRectCache);
+        }
+      }
+      gap = gap || 0;
+
+      const gapCount = values.length - 1;
+      totalGapVal = gapCount * gap;   
+
+      this.el.totalGapVal = totalGapVal;
+      this.el[explicitGapName] = gap;
+      this.el.gridWidth = totalWidth - padding;
+      this.el.columnsCount = values.length;
+    }
 
 
     if(progress >= 1)
-      values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
+      values = values.map((maxVal, index) => { 
+        const unit = breakpointValues.maxUnits[index];
+      
+        if(unit === 'fr' || (Array.isArray (maxVal) && maxVal[0] === 'minmax'))
+          return maxVal;
+
+        return computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache)
+      })
     else 
-      values = breakpointValues.minValues.map((val, index) => {
-        
+      values = values.map((val, index) => {
+       
+        const minUnit = breakpointValues.minUnits[index];
+
+        if(minUnit === 'fr' || (Array.isArray (val) && val[0] === 'minmax'))
+          return val;
+
         if (typeof val === 'string')
           return val;
 
         const maxRaw = breakpointValues.maxValues[index];
 
-        const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+        const minVal = computeVal (val, minUnit, this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
         
         if(typeof maxRaw === 'string')
           return minVal;
@@ -1222,7 +1315,28 @@ class FluidProperty {
         
         return minVal + (rangeValue * progress);
       });
-   
+
+      if(this.isGap)
+      {
+        const val = values[0];
+        this.el[this.propertyName] = val;
+        this.el.gapVal = val;
+      }
+      else 
+if(this.isGrid)
+{
+
+
+  values = values.map ((val, index) => 
+  {
+    let unit = progress >= 1 ? breakpointValues.maxUnits[index] : breakpointValues.minUnits[index];
+
+    if (unit === 'fr' || Array.isArray (unit))
+      return computeVal (val, unit, this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+    
+    return val;
+  });
+}   
     if (this.customTransition)
     {
       if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
@@ -1457,7 +1571,7 @@ function getElementOneUpFromLastTop ()
   }
   else 
   {
-    prevEl = topEl.parentEl;
+    prevEl = topEl.parentElement;
   }
 
   const rect = prevEl.getBoundingClientRect ();
@@ -1467,7 +1581,8 @@ function getElementOneUpFromLastTop ()
 function getDiagonalDistance(x1, y1, x2, y2) {
   const dx = x2 - x1;
   const dy = y2 - y1;
-  return dx * dx + dy * dy
+  const verticalWeight = 3;
+  return dx * dx + verticalWeight * verticalWeight * dy * dy
 }
 function getElementClosestToTop(elements) {
   if(elements.size < 0)
@@ -1475,9 +1590,13 @@ function getElementClosestToTop(elements) {
 
   let closestElement = topEl;
   let closestDistance = Infinity;
+  let closestDy = Infinity;
+  let closestDx = Infinity;
   let closestRect = lastTop;
   
   const fixation = scrollFix.point === 'center' ? [window.innerWidth * 0.5, window.innerHeight * 0.5] : [0, 0];
+  const [fx, fy] = fixation;
+  const dyThreshold = window.innerHeight * 0.05;
 
   elements.forEach(el => {
     const rect = el.getBoundingClientRect();
@@ -1485,14 +1604,22 @@ function getElementClosestToTop(elements) {
     if (rect.width === 0 && rect.height === 0)
       return;
     
-    if (rect.top < 0)
-      return;
+    //if (rect.top < 0)
+      //return;
 
-    const distance = getDiagonalDistance (rect.left, rect.top, fixation[0], fixation[1]); 
-    let isCloser = distance < closestDistance;
+    const dy = Math.abs(rect.top - fy);
+    const dx = Math.abs(rect.left - fx);
+
+    //const distance = getDiagonalDistance (rect.left, rect.top, fixation[0], fixation[1]); 
+    //let isCloser = distance < closestDistance;
+
+    const isVerticallyCloser = dy < closestDy;
+    const isWithinVerticalThreshold = Math.abs(dy - closestDy) <= dyThreshold;
+    const isHorizontallyCloser = dx < closestDx;
     
-    if (isCloser) {
-      closestDistance = distance;
+    if (isVerticallyCloser || (isWithinVerticalThreshold && isHorizontallyCloser)) {
+      closestDx = dx;
+      closestDy = dy;
       closestElement = el;
       closestRect = rect;
     }
@@ -1625,16 +1752,15 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
      return evaluateCalc (pxValues.join(' '));
     case "minmax":
       const style = getCachedComputedStyle (el, computedStyleCache);
+     
       switch(property)
       {
+        case "grid-auto":
         case "grid-auto-fit":
         case "grid-auto-fill": {
-          const gap = style.columnGap || style.gap || 0;
-          const gapProperty = style.columnGap ? 'column-gap' : "gap";
-          const gapVal = parseSingleVal (gap);
-          const gapUnit = extractUnit (gap, gapProperty);
+          const gap = el.columnGap;
        
-          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).width, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+          return computeAutoFitGrid (el.gridWidth, pxValues[0], pxValues[1], gap);
         }
         case "grid-auto-fit-rows":
         case "grid-auto-fill-rows": {
@@ -1644,6 +1770,25 @@ function computeCalc (type, arr, units, property, el, computedStyleCache, boundC
           const gapUnit = extractUnit (gap, gapProperty);
           return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).height, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
         }
+
+        case "grid-template-columns":
+        case "grid-template-rows":
+          {
+            if (el.columnsCount <= 0) return 0;
+
+            const availableWidth = el.gridWidth - el.totalGapVal;
+
+            let trackWidth = availableWidth / el.columnsCount;
+
+            if(trackWidth < pxValues[0])
+              return pxValues[0];
+
+            if (trackWidth > pxValues[1])
+              return pxValues[1];
+
+            return trackWidth;
+          }
+        break;
       }
 
       return Math.max(pxValues[0], pxValues[1]);
@@ -1658,6 +1803,8 @@ function evaluateCalc(expression) {
   return new Function(`return (${expression})`)();
 }
 function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0) {
+  
+  console.log (containerWidth);
   const totalGap = (n) => (n - 1) * gap;
 
   // Try to fit as many tracks of `minTrackSize` as possible
@@ -1686,6 +1833,17 @@ function convertToPx (val, unit, property, el, computedStyleCache, boundClientRe
   {
     case "px":
       return val;
+
+    case "fr": {
+     const remaining = el.availableSpace;
+     const totalFrUnits = el.totalFrUnits;
+
+      if (remaining < 0) return 0;
+      if (totalFrUnits === 0) return 0;
+    
+      const pxPerFr = remaining / totalFrUnits;
+      return pxPerFr * val;
+    }
     case "rem":
       return val * rootFontSize;
     case "em":
@@ -1712,9 +1870,8 @@ function convertToPx (val, unit, property, el, computedStyleCache, boundClientRe
           return (val / 100) * (getCachedBoundingClientRect (el.parentElement, boundClientRectCache).height - padding);
       }
       
-      const padLeft = parentStyle.paddingLeft
-      const padRight = parentStyle.paddingRight;
-      const padding = convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', parentEl, computedStyleCache, boundClientRectCache) + convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', parentEl, computedStyleCache, boundClientRectCache);
+      const padding = getPadding (parentStyle, parentEl, computedStyleCache, boundClientRectCache);
+      
       return (val / 100) * (getCachedBoundingClientRect(el.parentElement, boundClientRectCache).width - padding);
 
     case "vw":
@@ -1775,6 +1932,18 @@ function applyEasing (easing, t)
   return t;
 }
 
+function getPadding (style, el, computedStyleCache, boundClientRectCache)
+{
+  const padLeft = style.paddingLeft;
+  const padRight = style.paddingRight;
+  const padLeftPx = el.paddingLeft > -1 ? el.paddingLeft : convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', el, computedStyleCache, boundClientRectCache);
+  const padRightPx = el.paddingRight > -1 ? el.paddingRight : convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', el, computedStyleCache, boundClientRectCache);
+  el.paddingLeft = padLeftPx;
+  el.paddingRight = padRightPx;
+
+  return padLeftPx + padRightPx;
+}
+
 // before FluidScale …
 let fluidVariableSelectors = {};
 let stylesParsed = false;
@@ -1790,6 +1959,7 @@ async function parseStyles (json)
     return;
   
   if (!stylesParsed && (!json || jsonLoaded !==  json)) {
+
    
     await waitForPageLoad ();
     // run once on load
@@ -2261,14 +2431,43 @@ function parseGridTemplateColumns(value) {
 }
 
 function parseRepeat(value) {
-  if(!value.includes ('repeat'))
-    return value;
-  const match = value.match(/^repeat\(\s*(\d+)\s*,\s*([^)]+)\s*\)$/);
-  if (!match) return null;
+ 
+  if (!value.includes('repeat')) return value;
+  
+  const start = value.indexOf('repeat(');
+  if (start === -1) return null;
 
-  const count = parseInt(match[1], 10);
-  const unit = match[2].trim();
+  // Extract the inside of repeat(...)
+  const inside = value.slice(start + 7, -1); // remove "repeat(" and final ")"
+  let i = 0;
+  let countStr = '';
+  
+  // Parse count (e.g., "3")
+  while (i < inside.length && /\d/.test(inside[i])) {
+    countStr += inside[i];
+    i++;
+  }
 
+  if (!countStr) return null;
+
+  const count = parseInt(countStr, 10);
+
+  // Skip comma and any whitespace
+  while (i < inside.length && (inside[i] === ',' || /\s/.test(inside[i]))) i++;
+
+  // Parse the unit (handle nested parentheses)
+  let unit = '';
+  let parenDepth = 0;
+
+  while (i < inside.length) {
+    const char = inside[i];
+    if (char === '(') parenDepth++;
+    if (char === ')') parenDepth--;
+    unit += char;
+    i++;
+  }
+
+  unit = unit.trim();
   return Array(count).fill(unit).join(' ');
 }
 
@@ -2453,6 +2652,7 @@ function parseRules(rules, bpIndex = 0) {
 
     assignOrderIndex (rulesArr);
     
+    fluidVariableSelectors = {};
     prevValues = {};
 
     mediaBps = rulesArr
@@ -2589,7 +2789,7 @@ function parseRules(rules, bpIndex = 0) {
           {
             value = parseRepeat (value);
           }
-
+     
           spanStart = spanStart || rule.style.getPropertyValue ('--span-start')?.split(',').map (s => s.trim()) || [];
           if (!minimizedMode || spanStart.includes ('all') || spanStart.includes (variableName) || spanStart.includes (shorthand)) {
             if (!prevValues[selector])
@@ -2602,7 +2802,7 @@ function parseRules(rules, bpIndex = 0) {
 
           breakVal = breakVal || rule.style.getPropertyValue ('--break')?.split (',').map(s => s.trim()) || [];
           const doBreak = breakVal.includes ('all') || breakVal.includes (variableName) || breakVal.includes (shorthand);
-          
+    
           let allCalcsParsed = parseAllCalcs (value);
           
           if(doBreak)
@@ -2899,6 +3099,7 @@ function parseRules(rules, bpIndex = 0) {
           if(variableData[1].length <= 1) variableObj.order = rule.order;
           if (attribs.length > 0) variableObj.attribs = attribs;
           if (isPseudo) variableObj.isPseudo = true;
+          
         }
       }
     }
@@ -2915,6 +3116,7 @@ function parseRules(rules, bpIndex = 0) {
         width
       );
     }
+    console.log (fluidVariableSelectors);
   }
   
 }

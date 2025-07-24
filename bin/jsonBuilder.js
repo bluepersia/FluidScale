@@ -123,7 +123,7 @@ async function generateFluidRulesJSON() {
 
     const dom = new JSDOM(html);
     const document = dom.window.document;
-
+    
     const sheets = Array.from (document.styleSheets).filter (sheet => {
       try {
         sheet.cssRules;

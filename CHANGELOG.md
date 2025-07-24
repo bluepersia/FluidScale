@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.0.1686-alpha]- 2025-07-23
+
+Extended the scroll anchoring distance algorithm to prioritize vertical distance.
+
+## [0.0.1684-alpha]- 2025-07-22
+
+Grid `repeat()` parsing with nested functions like `min()` fixed.
+Desync between adding elements fixed.
+
+## [0.0.1683-alpha]- 2025-07-22
+
+% calc override bug fix.
+JSON builder stacking each JSON ID - fixed.
+
+## [0.0.1682-alpha]- 2025-07-22
+
+Scroll anchoring should apply more consistently.
+
+## [0.0.1681-alpha]- 2025-07-22
+
+Fixed scroll-anchoring bug.
+
 ## [0.0.1679-alpha]- 2025-07-18
 
 ### Modified
