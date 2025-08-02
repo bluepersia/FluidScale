@@ -5,6 +5,13 @@
 
 [Multi-page website preview](https://designo-website-sl64.vercel.app/)<br>
 
+**Latest update**
+Fixed mobile jank on low-end devices.
+Fixed stale values being used for % and em.
+Fixed scroll anchor not getting updated on mobiles.
+
+**Important**: due to certain limitations, on low-end mobiles, if you change orientation and then scroll down, there can be some jank!
+
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
 Write:

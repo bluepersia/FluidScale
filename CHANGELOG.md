@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.0.1688-alpha]- 2025-08-01
+
+Fixed stale values being used for % and em.
+Fixed scroll anchor not getting updated on mobiles.
+
+## [0.0.1687-alpha]- 2025-07-31
+
+Fixed jank on low-end mobile devices.
+
 ## [0.0.1686-alpha]- 2025-07-23
 
 Extended the scroll anchoring distance algorithm to prioritize vertical distance.

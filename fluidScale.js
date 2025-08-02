@@ -34,6 +34,19 @@ while (document.body.firstChild) {
 document.body.appendChild(scrollContainer);*/
 
 
+function getIsMobileOrTablet() {
+  const ua = navigator.userAgent;
+  const isMobileHint = navigator.userAgentData?.mobile === true;
+  const isMobileRegex = /Mobi|Android|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isTabletRegex = /iPad|Tablet|Nexus 7|Nexus 10|KF[A-Z][A-Z]+/i.test(ua);
+  
+
+  return isMobileHint || isMobileRegex || isTabletRegex;
+}
+
+const isMobileOrTablet = getIsMobileOrTablet();
+
+
 
 let rootFontSize = 16;
 const rootFontSizeChanged = [];
@@ -107,6 +120,10 @@ function initScrollFix ()
       document.documentElement.style.scrollBehavior = 'instant';
       document.documentElement.style.overflowAnchor = 'none';
 
+
+      window.addEventListener ('touchmove', () => isUserScrolling = true);
+      window.addEventListener ('wheel', () => isUserScrolling = true);
+      /*
       let intervalId;
   window.addEventListener('mousedown', (event) => {
     
@@ -137,11 +154,11 @@ window.addEventListener('wheel', (e) => {
 
   targetScroll += e.deltaY;
   targetScroll = Math.max (0, Math.min(maxScroll, targetScroll));
-*/
+
   userIsScrolling (); 
 }, {passive:false});
 
-window.addEventListener('touchstart', () => {
+window.addEventListener('touchmove', () => {
 
   userIsScrolling ();
 });
@@ -152,8 +169,9 @@ window.addEventListener('keydown', (e) => {
     userIsScrolling ();
   }
 });
-}
 
+*/
+}
 
 
 let topEl;
@@ -496,10 +514,11 @@ class FluidScale {
         const fluidProperty = FluidProperty.Parse (el, variableName, vbbp, this.breakpoints, this.autoTransition, this.computedStyleCache, this.boundClientRectCache, this);
         el.fluidProperties.push (fluidProperty);
   }
+  newElements = new Set();
   addElements(els) {
 
     const time = performance.now ();
-    
+
     els.forEach((el) => {
     
         if(!el.state)
@@ -533,6 +552,9 @@ class FluidScale {
 
       for(const [variableName, val] of Object.entries (el.mainFp))
         this.processVariableObjArrToFp (el, val, variableName);
+
+      if (elFluidProperties.length > 0)
+        this.newElements.add (el);
 /*
         const classKey = getClassSelector(el);
 
@@ -685,12 +707,20 @@ class FluidScale {
 
     resizeTimer;
 
+    lastResizeWidth = getStableWindowWidth();
     onResize ()
     {
+      const width = getStableWindowWidth ();
+      const lastResizeWidth = this.lastResizeWidth;
+      this.lastResizeWidth = width;
+
+      if (Math.abs (width - lastResizeWidth) < 1)
+        return;
+      
       clearTimeout(this.resizeTimer);
   this.resizeTimer = setTimeout(() => {
     this.updateAboveViewport = true;
-  }, 200); 
+  }, isMobileOrTablet ? 16 : 200); 
     }
 
 
@@ -700,11 +730,11 @@ class FluidScale {
   calcCurrentWidth ()
   {
     let currentWidth =
-      window.innerWidth < this.minBreakpoint
+      window.vpWidth < this.minBreakpoint
         ? this.minBreakpoint
-        : window.innerWidth > this.maxBreakpoint
+        : window.vpWidth > this.maxBreakpoint
         ? this.maxBreakpoint
-        : window.innerWidth;
+        : window.vpWidth;
 
     if(currentWidth === this.currentWidth)
       return;
@@ -740,6 +770,9 @@ class FluidScale {
       if (el.fs !== this)
         continue;
 
+      if (el.fluidProperties.length <= 0)
+        continue;
+
       this.activeElements.add (el);
       this.inactiveEls.delete (el);
     }
@@ -750,6 +783,9 @@ class FluidScale {
    for(const el of els)
    {
     if(el.fs !== this)
+      continue;
+
+    if (el.fluidProperties.length <= 0)
       continue;
 
       this.activeElements.delete (el);
@@ -763,8 +799,16 @@ class FluidScale {
   started = false;
   lastTopEl;
   lastWidthShift = performance.now();
+  lastWindowWidth = getStableWindowWidth ();
   inactiveEls = new Set();
+  updateTime = 0;
+  didAnchorFix = false;
+  lastScrollY = window.scrollY;
   update() {
+    this.updateTime = performance.now ();
+
+    window.vpWidth = window.innerWidth;
+    window.vpHeight = window.innerHeight;
 
     this.calcCurrentWidth ();
 
@@ -773,12 +817,20 @@ class FluidScale {
     for (const el of this.activeElements)
       this.updateElement (el, elsToRemove);
 
+    for(const el of this.newElements)
+      this.updateElement (el, elsToRemove);
+    
+    if(this.newElements.size > 0)
+      this.newElements = new Set();
+
     if (this.updateAboveViewport)
     {
+      
       for (const el of this.inactiveEls)
         this.updateElement (el, elsToRemove);
 
-      this.inactiveEls = new Set();
+      if(!isMobileOrTablet)
+        this.inactiveEls = new Set();
     }
 
     for(const el of elsToRemove)
@@ -786,7 +838,6 @@ class FluidScale {
 
     this.computedStyleCache.clear();
     this.boundClientRectCache.clear ();
-
 
    
   if(scrollFix)
@@ -808,7 +859,8 @@ class FluidScale {
 */
     }
 
-    this.lastWindowWidth = window.innerWidth;
+    this.lastWindowWidth = getStableWindowWidth() ;
+    this.lastScrollY = window.scrollY;
     this.updateAboveViewport = false;
     if(viewportStarted)
       this.started = true;
@@ -817,13 +869,19 @@ class FluidScale {
   }
 
 
-  updateElement (el, elsToRemove)
+  updateElement (el, elsToRemove = null)
   {
-    if (!el.isConnected)
+    if (!el.isConnected )
       {
-        elsToRemove.push (el)
-        return;
+        if (elsToRemove)
+          elsToRemove.push (el)
+        return false;
       }
+
+      if (el.updateTime === this.updateTime)
+        return false;
+
+      el.updateTime = this.updateTime;
 
       el.calcedPerc = false;
 
@@ -900,13 +958,16 @@ class FluidScale {
       }
 
       el.resized = false;
+
+      return true;
   }
   
   
 postStateApply (state, value, order, fp)
 {
+
   state.valueApplied = value;
-  state.widthApplied = window.innerWidth;
+  state.widthApplied = window.vpWidth;
   state.fpApplied = fp;
   state.orderApplied = order;
 
@@ -960,11 +1021,11 @@ postStateApply (state, value, order, fp)
           el.locked = true;
         }
       })*/
-        const didShift = window.innerWidth !== this.lastWindowWidth;
+        const didShift = Math.abs (getStableWindowWidth() - this.lastWindowWidth) >= 1;
 
         if(didShift)
           isUserScrolling = false;
-
+        
         if(didShift || this.updateAboveViewport)
         {
           this.lastWasUpdateAboveVp = this.updateAboveViewport;
@@ -1011,7 +1072,7 @@ postStateApply (state, value, order, fp)
         top: targetY,
         behavior: 'auto'
       })
-
+      this.didAnchorFix = true;
     }
       //targetScroll += distance;
      // currentScroll = targetScroll;
@@ -1019,6 +1080,12 @@ postStateApply (state, value, order, fp)
     }
 
   }
+
+  if (this.lastScrollY !== window.scrollY && !this.didAnchorFix)
+    userIsScrolling ();
+  
+  
+  this.didAnchorFix = false;
 }
 
   destroy() {
@@ -1159,6 +1226,159 @@ class FluidProperty {
     if (this.observer)
       this.observer.disconnect ();
   }
+
+ computeVal (val, units, property, el, computedStyleCache, boundClientRectCache)
+{
+  
+  if(Array.isArray (val))
+  {
+    return this.computeCalc(val[0], val[1], units[1], property, el, computedStyleCache, boundClientRectCache);
+  }
+  return this.convertToPx (val, units, property, el, computedStyleCache, boundClientRectCache);
+}
+
+ computeCalc (type, arr, units, property, el, computedStyleCache, boundClientRectCache)
+{
+  const pxValues = arr.map ((v, index) => isArithemtic (v) ? v : this.computeVal(v, units[index], property, el, computedStyleCache, boundClientRectCache));
+
+  switch(type)
+  {
+    case "break":
+      return ['break', pxValues[0]];
+    case "top":
+    case "left":
+      return 0 + pxValues.length > 0 ? pxValues[0] : 0;
+    case "right":
+      return getCachedBoundingClientRect (el, boundClientRectCache).width - (pxValues.length > 0 ? pxValues[0] : 0);
+    case "bottom":
+ 
+      return getCachedBoundingClientRect (el, boundClientRectCache).height - (pxValues.length > 0 ? pxValues[0] : 0);
+    case "h-center":
+      return (getCachedBoundingClientRect (el, boundClientRectCache).width / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
+    case "v-center":
+      return (getCachedBoundingClientRect (el, boundClientRectCache).height / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
+    case "min":
+      return Math.min (...pxValues);
+    case "max":
+      return Math.max (...pxValues);
+    case "clamp": 
+      const [minVal, fluidVal, maxVal] = pxValues;
+      return Math.min(Math.max(fluidVal, minVal), maxVal);
+    case "calc":
+     // const expr = evalParser.parse (pxValues.join(' '));
+     // return expr.evaluate ();
+     return evaluateCalc (pxValues.join(' '));
+    case "minmax":
+      const style = getCachedComputedStyle (el, computedStyleCache);
+      switch(property)
+      {
+        case "grid-auto-fit":
+        case "grid-auto-fill": {
+          const gap = style.columnGap || style.gap || 0;
+          const gapProperty = style.columnGap ? 'column-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
+       
+          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).width, pxValues[0], pxValues[1], this.computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+        }
+        case "grid-auto-fit-rows":
+        case "grid-auto-fill-rows": {
+          const gap = style.rowap || style.gap || 0;
+          const gapProperty = style.rowGap ? 'row-gap' : "gap";
+          const gapVal = parseSingleVal (gap);
+          const gapUnit = extractUnit (gap, gapProperty);
+          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).height, pxValues[0], pxValues[1], this.computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+        }
+      }
+
+      return Math.max(pxValues[0], pxValues[1]);
+  }
+}
+
+ convertToPx (val, unit, property, el, computedStyleCache, boundClientRectCache)
+{
+  
+  switch(unit)
+  {
+    case "px":
+      return val;
+    case "rem":
+      return val * rootFontSize;
+    case "em":
+      const targetEl = property === 'font-size' ? el.parentElement : el;
+      if (this.fs.updateElement (targetEl))
+      {
+        clearCacheForEl (targetEl, computedStyleCache);
+      }
+      const targetFontSize = getCachedComputedStyle (targetEl, computedStyleCache).fontSize;
+
+      const targetVal = parseSingleVal (targetFontSize);
+      const targetUnit = extractUnit (targetFontSize, 'font-size');
+
+      return this.convertToPx(targetVal, targetUnit, 'font-size', targetEl, computedStyleCache, boundClientRectCache) * val;
+    case "%":
+      if (this.fs.updateElement (el.parentElement))
+      {
+        clearCacheForEl (el.parentElement, computedStyleCache);
+        clearCacheForEl (el.parentElement, boundClientRectCache);
+      }
+      const parentStyle = getCachedComputedStyle (el.parentElement, computedStyleCache);
+      const parentEl = el.parentElement;
+      el.calcedPerc = true;
+      
+      switch(property)
+      {
+        case "height":
+        case "top":
+        case "bottom":
+          const padTop = parentStyle.paddingTop;
+          const padBtm = parentStyle.paddingBottom;
+          const padding = this.convertToPx (parseSingleVal (padTop), extractUnit(padTop, 'padding-top'), 'padding-top', parentEl, computedStyleCache, boundClientRectCache) + this.convertToPx (parseSingleVal (padBtm), extractUnit(padBtm, 'padding-bottom'), 'padding-bottom', parentEl, computedStyleCache, boundClientRectCache);
+          return (val / 100) * (getCachedBoundingClientRect (el.parentElement, boundClientRectCache).height - padding);
+      }
+      
+      const padLeft = parentStyle.paddingLeft
+      const padRight = parentStyle.paddingRight;
+      const padding = this.convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', parentEl, computedStyleCache, boundClientRectCache) + this.convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', parentEl, computedStyleCache, boundClientRectCache);
+  
+      return (val / 100) * (getCachedBoundingClientRect(el.parentElement, boundClientRectCache).width - padding);
+
+    case "vw":
+      return (val / 100) * window.vpWidth;
+    case "vh":
+      return (val / 100) * window.vpHeight;
+
+    case "vmin":
+      return (val / 100) * Math.min (window.vpWidth, window.vpHeight);
+    case "vmax":
+      return (val / 100) * Math.max (window.vpWidth, window.vpHeight);
+    
+    case 'cm':
+    case 'mm':
+    case 'in':
+    case 'pt':
+    case 'pc':
+      return val * unitToPx[unit];
+
+    case 'ch':
+    case 'ex':
+      return val * getCharUnit(el, unit, getCachedComputedStyle(el));
+
+    case "lh": 
+      const style = getCachedComputedStyle(el, computedStyleCache);
+      const fontSize = style.fontSize;
+      const fsVal = parseSingleVal(fontSize);
+      const fsUnit = extractUnit(fontSize, 'font-size');
+      const fontSizePx = this.convertToPx(fsVal, fsUnit, 'font-size', el, computedStyleCache, boundClientRectCache);
+
+      if (val === "normal") 
+        return fontSizePx * 1.2;
+
+      return fontSizePx * val;
+  }
+
+  return val;
+}
   getValues(breakpointIndex, currentWidth) {
     
     if (breakpointIndex >= this.breakpoints.length - 1)
@@ -1168,7 +1388,6 @@ class FluidProperty {
       breakpointIndex--;
 
     let breakpointValues = this.valuesByBreakpoint[breakpointIndex];
-
 
    
     if (!breakpointValues) return [];
@@ -1189,13 +1408,18 @@ class FluidProperty {
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
+
+      
+
+ 
+      
     let values;
 
  
 
 
     if(progress >= 1)
-      values = breakpointValues.maxValues.map((maxVal, index) => computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
+      values = breakpointValues.maxValues.map((maxVal, index) => this.computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
     else 
       values = breakpointValues.minValues.map((val, index) => {
         
@@ -1204,7 +1428,7 @@ class FluidProperty {
 
         const maxRaw = breakpointValues.maxValues[index];
 
-        const minVal = computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+        const minVal = this.computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
         
         if(typeof maxRaw === 'string')
           return minVal;
@@ -1214,7 +1438,7 @@ class FluidProperty {
       {
           return minVal[1];
       }
-        const maxVal = computeVal (maxRaw, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
+        const maxVal = this.computeVal (maxRaw, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
         
        
         const rangeValue = maxVal - minVal;
@@ -1223,6 +1447,7 @@ class FluidProperty {
         return minVal + (rangeValue * progress);
       });
    
+      
     if (this.customTransition)
     {
       if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
@@ -1235,7 +1460,7 @@ class FluidProperty {
          
           let propVal = getCachedComputedStyle (this.el, this.computedStyleCache).getPropertyValue (prop);
 
-          this.customTransition.startValues = propVal.split(' ').map (strVal => convertToPx(parseSingleVal(strVal), extractUnit(strVal, this.name), this.name, this.el, this.boundClientRectCache));
+          this.customTransition.startValues = propVal.split(' ').map (strVal => this.convertToPx(parseSingleVal(strVal), extractUnit(strVal, this.name), this.name, this.el, this.boundClientRectCache));
         }
         this.customTransition.targetValues = values;
         this.customTransition.startTime = performance.now ();
@@ -1346,6 +1571,10 @@ class FluidProperty {
     return this._isActive;
   }
 
+  isSameWidth ()
+  {
+    return this.state.widthApplied && Math.abs (window.vpWidth - this.state.widthApplied) < 1;
+  }
 
   update(breakpointIndex, currentWidth) { 
     const state = this.state;
@@ -1365,10 +1594,11 @@ class FluidProperty {
     if (this.el.isHidden)
       return;
 
+   
     if (this.order < state.order)
       return;
 
-    if(window.innerWidth === this.state.widthApplied && !this.el.resized && !state.lastDynamicChange && state.fpApplied?.isActive())
+    if(this.isSameWidth() && !this.el.resized && !state.lastDynamicChange && state.fpApplied?.isActive())
     {
       if(state.fpApplied === this)
       {
@@ -1380,11 +1610,12 @@ class FluidProperty {
     }
 
     const strValue = this.toString(breakpointIndex, currentWidth);
-
+    
     if(!strValue)
       return;
 
-    
+
+  
     state.fp = this;
     state.order = this.order;
     if (autoApply) {
@@ -1426,7 +1657,14 @@ class FluidPropertyCombo extends FluidProperty {
   }
 }
 
-
+function getStableWindowWidth ()
+{
+  return visualViewport?.width ?? window.innerWidth;
+}
+function getStableWindowHeight ()
+{
+  return visualViewport?.height ?? window.innerHeight;
+}
 function getElementClosestToLastTop(elements) {
   if(elements.size <= 0)
     return [null, lastTop];
@@ -1480,9 +1718,12 @@ function getElementClosestToTop(elements) {
   let closestDx = Infinity;
   let closestRect = lastTop;
   
-  const fixation = scrollFix.point === 'center' ? [window.innerWidth * 0.5, window.innerHeight * 0.5] : [0, 0];
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+
+  const fixation = scrollFix.point === 'center' ? [width * 0.5, height * 0.5] : [0, 0];
   const [fx, fy] = fixation;
-  const dyThreshold = window.innerHeight * 0.05;
+  const dyThreshold = height * 0.05;
 
   elements.forEach(el => {
     const rect = el.getBoundingClientRect();
@@ -1542,6 +1783,10 @@ function getCachedComputedStyle (el, cache)
   
   return cache.get (el);
 }
+function clearCacheForEl (el, cache)
+{
+  cache.delete (el);
+}
 
 function getCachedBoundingClientRect (el, cache)
 {
@@ -1595,73 +1840,7 @@ function isArithemtic (v)
 function isNumber(value) {
   return typeof value === 'number' && isFinite(value);
 }
-function computeVal (val, units, property, el, computedStyleCache, boundClientRectCache)
-{
-  
-  if(Array.isArray (val))
-  {
-    return computeCalc(val[0], val[1], units[1], property, el, computedStyleCache, boundClientRectCache);
-  }
-  return convertToPx (val, units, property, el, computedStyleCache, boundClientRectCache);
-}
 
-function computeCalc (type, arr, units, property, el, computedStyleCache, boundClientRectCache)
-{
-  const pxValues = arr.map ((v, index) => isArithemtic (v) ? v : computeVal(v, units[index], property, el, computedStyleCache, boundClientRectCache));
-
-  switch(type)
-  {
-    case "break":
-      return ['break', pxValues[0]];
-    case "top":
-    case "left":
-      return 0 + pxValues.length > 0 ? pxValues[0] : 0;
-    case "right":
-      return getCachedBoundingClientRect (el, boundClientRectCache).width - (pxValues.length > 0 ? pxValues[0] : 0);
-    case "bottom":
- 
-      return getCachedBoundingClientRect (el, boundClientRectCache).height - (pxValues.length > 0 ? pxValues[0] : 0);
-    case "h-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).width / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
-    case "v-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).height / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
-    case "min":
-      return Math.min (...pxValues);
-    case "max":
-      return Math.max (...pxValues);
-    case "clamp": 
-      const [minVal, fluidVal, maxVal] = pxValues;
-      return Math.min(Math.max(fluidVal, minVal), maxVal);
-    case "calc":
-     // const expr = evalParser.parse (pxValues.join(' '));
-     // return expr.evaluate ();
-     return evaluateCalc (pxValues.join(' '));
-    case "minmax":
-      const style = getCachedComputedStyle (el, computedStyleCache);
-      switch(property)
-      {
-        case "grid-auto-fit":
-        case "grid-auto-fill": {
-          const gap = style.columnGap || style.gap || 0;
-          const gapProperty = style.columnGap ? 'column-gap' : "gap";
-          const gapVal = parseSingleVal (gap);
-          const gapUnit = extractUnit (gap, gapProperty);
-       
-          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).width, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
-        }
-        case "grid-auto-fit-rows":
-        case "grid-auto-fill-rows": {
-          const gap = style.rowap || style.gap || 0;
-          const gapProperty = style.rowGap ? 'row-gap' : "gap";
-          const gapVal = parseSingleVal (gap);
-          const gapUnit = extractUnit (gap, gapProperty);
-          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).height, pxValues[0], pxValues[1], computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
-        }
-      }
-
-      return Math.max(pxValues[0], pxValues[1]);
-  }
-}
 function evaluateCalc(expression) {
 
   if (!/^[\d+\-*/().\s]+$/.test(expression)) {
@@ -1692,81 +1871,7 @@ function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0)
  return trackSize;
 }
 
-function convertToPx (val, unit, property, el, computedStyleCache, boundClientRectCache)
-{
-  
-  switch(unit)
-  {
-    case "px":
-      return val;
-    case "rem":
-      return val * rootFontSize;
-    case "em":
-      const targetEl = property === 'font-size' ? el.parentElement : el;
-      const targetFontSize = getCachedComputedStyle (targetEl, computedStyleCache).fontSize;
 
-      const targetVal = parseSingleVal (targetFontSize);
-      const targetUnit = extractUnit (targetFontSize, 'font-size');
-
-      return convertToPx(targetVal, targetUnit, 'font-size', targetEl, computedStyleCache, boundClientRectCache) * val;
-    case "%":
-      
-      const parentStyle = getCachedComputedStyle(el.parentElement, computedStyleCache);
-      const parentEl = el.parentElement;
-      el.calcedPerc = true;
-      switch(property)
-      {
-        case "height":
-        case "top":
-        case "bottom":
-          const padTop = parentStyle.paddingTop;
-          const padBtm = parentStyle.paddingBottom;
-          const padding = convertToPx (parseSingleVal (padTop), extractUnit(padTop, 'padding-top'), 'padding-top', parentEl, computedStyleCache, boundClientRectCache) + convertToPx (parseSingleVal (padBtm), extractUnit(padBtm, 'padding-bottom'), 'padding-bottom', parentEl, computedStyleCache, boundClientRectCache);
-          return (val / 100) * (getCachedBoundingClientRect (el.parentElement, boundClientRectCache).height - padding);
-      }
-      
-      const padLeft = parentStyle.paddingLeft
-      const padRight = parentStyle.paddingRight;
-      const padding = convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', parentEl, computedStyleCache, boundClientRectCache) + convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', parentEl, computedStyleCache, boundClientRectCache);
-      
-      return (val / 100) * (getCachedBoundingClientRect(el.parentElement, boundClientRectCache).width - padding);
-
-    case "vw":
-      return (val / 100) * window.innerWidth;
-    case "vh":
-      return (val / 100) * window.innerHeight;
-
-    case "vmin":
-      return (val / 100) * Math.min (window.innerWidth, window.innerHeight);
-    case "vmax":
-      return (val / 100) * Math.max (window.innerWidth, window.innerHeight);
-    
-    case 'cm':
-    case 'mm':
-    case 'in':
-    case 'pt':
-    case 'pc':
-      return val * unitToPx[unit];
-
-    case 'ch':
-    case 'ex':
-      return val * getCharUnit(el, unit, getCachedComputedStyle(el));
-
-    case "lh": 
-      const style = getCachedComputedStyle(el, computedStyleCache);
-      const fontSize = style.fontSize;
-      const fsVal = parseSingleVal(fontSize);
-      const fsUnit = extractUnit(fontSize, 'font-size');
-      const fontSizePx = convertToPx(fsVal, fsUnit, 'font-size', el, computedStyleCache, boundClientRectCache);
-
-      if (val === "normal") 
-        return fontSizePx * 1.2;
-
-      return fontSizePx * val;
-  }
-
-  return val;
-}
 
 function applyEasing (easing, t)
 {
@@ -3226,7 +3331,7 @@ function isProbablyDev() {
   if (typeof __ENV__ !== 'undefined' && __ENV__ === 'development')
     return true;
   
-  return location.hostname === 'localhost' || (location.hostname === '127.0.0.1' && location.port === '5000' );
+  return location.hostname === 'localhost' ||location.hostname === '0.0.0.0' || (location.hostname === '127.0.0.1' && location.port === '5000' );
 }
 function findMap(array, mapFn) {
   for (const item of array) {
