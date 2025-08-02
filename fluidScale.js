@@ -514,7 +514,7 @@ class FluidScale {
         const fluidProperty = FluidProperty.Parse (el, variableName, vbbp, this.breakpoints, this.autoTransition, this.computedStyleCache, this.boundClientRectCache, this);
         el.fluidProperties.push (fluidProperty);
   }
-  newElements = new Set();
+  //newElements = new Set();
   addElements(els) {
 
     const time = performance.now ();
@@ -553,8 +553,8 @@ class FluidScale {
       for(const [variableName, val] of Object.entries (el.mainFp))
         this.processVariableObjArrToFp (el, val, variableName);
 
-      if (elFluidProperties.length > 0)
-        this.newElements.add (el);
+      //if (elFluidProperties.length > 0)
+        //this.newElements.add (el);
 /*
         const classKey = getClassSelector(el);
 
@@ -817,11 +817,11 @@ class FluidScale {
     for (const el of this.activeElements)
       this.updateElement (el, elsToRemove);
 
-    for(const el of this.newElements)
+    /*for(const el of this.newElements)
       this.updateElement (el, elsToRemove);
     
     if(this.newElements.size > 0)
-      this.newElements = new Set();
+      this.newElements = new Set();*/
 
     if (this.updateAboveViewport)
     {
