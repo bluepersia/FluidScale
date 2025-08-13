@@ -1,13 +1,10 @@
 ![Tool Logo](https://github.com/bluepersia/FluidScale/raw/master/assets/logo.jpg)
 
-**This tool has been tested with small tests. It's now being tested on realistic patterns.**
-**Thanks for your patience**
-
 [Multi-page website preview](https://designo-website-sl64.vercel.app/)<br>
 
-**Latest update**
-Fixed stale values being used for % and em.
-Fixed scroll anchor not getting updated on mobiles.
+**Based on manual testing, this tool seems t work. But for a solid 1.0 release, internal tests seem to be paramount. A fully testable rewrite is planned.
+I do not recommend using this version in production.**
+[Get notified about alpha release](https://preview.mailerlite.io/forms/1716297/161919986996086055/share)<br>
 
 Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
 
