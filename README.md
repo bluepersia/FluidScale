@@ -1,12 +1,12 @@
 ![Tool Logo](https://github.com/bluepersia/FluidScale/raw/master/assets/logo.jpg)
 
+Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
+
 [Multi-page website preview](https://designo-website-sl64.vercel.app/)<br>
 
-**Based on manual testing, this tool seems t work. But for a solid 1.0 release, internal tests seem to be paramount. A fully testable rewrite is planned.
-I do not recommend using this version in production.**
-[Get notified about alpha release](https://preview.mailerlite.io/forms/1716297/161919986996086055/share)<br>
+\*\*I announced a 0.2 rewrite a few months ago — it’s still on the roadmap, but I took some time to build the testing framework it’ll rely on. That’s now [live](https://www.npmjs.com/package/gold-sight) and getting great traction (2.2k+ downloads!).
 
-Welcome to FluidScale, a JS runtime style engine that applies pixel-perfect fluid scaling to your CSS.
+Once I’m confident in this foundation, I’ll resume the rewrite — this time with proper tests and modular design from the start.\*\*
 
 Write:
 
@@ -31,7 +31,7 @@ And FluidScale will ensure your content scales with screen size.
 In JS:
 
 ```js
-import fluidScale from 'fluid-scale';
+import fluidScale from "fluid-scale";
 
 fluidScale();
 ```
@@ -62,7 +62,7 @@ You can also specify CSS files directly.
 Make sure you initialize FluidScale with the right JSON ID:
 
 ```js
-fluidScale({ json: 'homepage' });
+fluidScale({ json: "homepage" });
 ```
 
 Once done and you've tested everything in dev mode, build the JSON
@@ -194,7 +194,7 @@ You can configure the transitions. These are the defaults:
 
 ```js
 fluidScale({
-  autoTransition: { time: 300, easing: 'ease', delay: 0, onlyStart: true },
+  autoTransition: { time: 300, easing: "ease", delay: 0, onlyStart: true },
 });
 ```
 
@@ -221,7 +221,7 @@ fluidScale({ scrollFix: { firefox: false } });
 Or change the anchoring fixation:
 
 ```js
-fluidScale({ scrollFix: { point: 'center' } });
+fluidScale({ scrollFix: { point: "center" } });
 ```
 
 ## 📐 Advanced

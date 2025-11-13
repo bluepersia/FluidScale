@@ -18,7 +18,6 @@ async function loadExprEval ()
 
 //let scrollContainer;
 
-
 /*
 document.body.style.overflow = document.documentElement.style.overflow = 'hidden';
 document.body.style.height = document.documentElement.style.height = '100%';
@@ -33,20 +32,17 @@ while (document.body.firstChild) {
 
 document.body.appendChild(scrollContainer);*/
 
-
 function getIsMobileOrTablet() {
   const ua = navigator.userAgent;
   const isMobileHint = navigator.userAgentData?.mobile === true;
-  const isMobileRegex = /Mobi|Android|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+  const isMobileRegex =
+    /Mobi|Android|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
   const isTabletRegex = /iPad|Tablet|Nexus 7|Nexus 10|KF[A-Z][A-Z]+/i.test(ua);
-  
 
   return isMobileHint || isMobileRegex || isTabletRegex;
 }
 
 const isMobileOrTablet = getIsMobileOrTablet();
-
-
 
 let rootFontSize = 16;
 const rootFontSizeChanged = [];
@@ -56,74 +52,67 @@ const unitToPx = {
   cm: 96 / 2.54,
   mm: 96 / 25.4,
   pt: 96 / 72,
-  pc: 16, 
+  pc: 16,
 };
-
 
 let rootFontSizeEl;
 try {
-rootFontSizeEl = document.createElement("div");
-rootFontSizeEl.id = 'root-font-size';
-rootFontSizeEl.style.position = "absolute";
-rootFontSizeEl.style.visibility = "hidden";
-rootFontSizeEl.style.height = "1rem";
-document.body.appendChild(rootFontSizeEl);
-const newRem = rootFontSizeEl.offsetHeight;
-  rootFontSize = newRem;
-  rootFontSizeChanged.forEach (cb => cb());
-const observer = new ResizeObserver(() => {
+  rootFontSizeEl = document.createElement("div");
+  rootFontSizeEl.id = "root-font-size";
+  rootFontSizeEl.style.position = "absolute";
+  rootFontSizeEl.style.visibility = "hidden";
+  rootFontSizeEl.style.height = "1rem";
+  document.body.appendChild(rootFontSizeEl);
   const newRem = rootFontSizeEl.offsetHeight;
-  
   rootFontSize = newRem;
-  rootFontSizeChanged.forEach (cb => cb());
-  // You can now update your px conversions
-});
+  rootFontSizeChanged.forEach((cb) => cb());
+  const observer = new ResizeObserver(() => {
+    const newRem = rootFontSizeEl.offsetHeight;
 
-observer.observe(rootFontSizeEl);
-}catch(err){}
+    rootFontSize = newRem;
+    rootFontSizeChanged.forEach((cb) => cb());
+    // You can now update your px conversions
+  });
 
-let scrollFix = {point: 'top'};
+  observer.observe(rootFontSizeEl);
+} catch (err) {}
+
+let scrollFix = { point: "top" };
 let currentScroll = 0;
 let targetScroll = 0;
 let maxScroll = 100;
 let userScrollingTimeout;
 let isUserScrolling;
 let onScrollEnd = userScroll;
-const isFirefox = navigator.userAgent.toLowerCase ().includes ('firefox');
-function userIsScrolling ()
-{
-  clearTimeout (userScrollingTimeout);
+const isFirefox = navigator.userAgent.toLowerCase().includes("firefox");
+function userIsScrolling() {
+  clearTimeout(userScrollingTimeout);
   isUserScrolling = true;
-  setTimeout (() => {
+  setTimeout(() => {
     //isUserScrolling = false
-    onScrollEnd ();
+    onScrollEnd();
   }, 300);
 }
 
 let scrollFixInitted = false;
 
-
-function initScrollFix ()
-{
-  if (scrollFix.firefox === false && isFirefox)
-  {
+function initScrollFix() {
+  if (scrollFix.firefox === false && isFirefox) {
     scrollFix = false;
     return;
   }
-  if (scrollFixInitted)
-    return;
+  if (scrollFixInitted) return;
 
   scrollFixInitted = true;
 
-  document.body.style.scrollBehavior = 'instant';
-      document.body.style.overflowAnchor = 'none';
-      document.documentElement.style.scrollBehavior = 'instant';
-      document.documentElement.style.overflowAnchor = 'none';
+  document.body.style.scrollBehavior = "instant";
+  document.body.style.overflowAnchor = "none";
+  document.documentElement.style.scrollBehavior = "instant";
+  document.documentElement.style.overflowAnchor = "none";
 
-
-      window.addEventListener ('touchmove', () => isUserScrolling = true);
-      window.addEventListener ('wheel', () => isUserScrolling = true);
-      /*
+  window.addEventListener("touchmove", () => (isUserScrolling = true));
+  window.addEventListener("wheel", () => (isUserScrolling = true));
+  /*
       let intervalId;
   window.addEventListener('mousedown', (event) => {
     
@@ -173,101 +162,79 @@ window.addEventListener('keydown', (e) => {
 */
 }
 
-
 let topEl;
 let lastTop;
-function userScroll ()
-{
-  const [el, rect] = getElementClosestToTop (elsInViewport);
+function userScroll() {
+  const [el, rect] = getElementClosestToTop(elsInViewport);
   topEl = el;
-  if(el)
-  {
-  if(typeof rect === 'number')
-    lastTop = rect;
-  else 
-    lastTop = rect.top;
+  if (el) {
+    if (typeof rect === "number") lastTop = rect;
+    else lastTop = rect.top;
 
     lastTop = Math.round(lastTop);
-}
+  }
 }
 try {
-
-}catch(err){}
+} catch (err) {}
 function getElementDistanceFromTop(element) {
   const rect = element.getBoundingClientRect();
   return rect.top + window.scrollY;
 }
 
-
 let interObserver;
 let elsInViewport = new Set();
-const elsEntered =[];
+const elsEntered = [];
 const elsExited = [];
 let viewportStarted;
 
-function removeEntry (entry)
-{
-  if(entry.target.isObservingResize)
-  {
-    entry.target.resizeObserver.disconnect ();
+function removeEntry(entry) {
+  if (entry.target.isObservingResize) {
+    entry.target.resizeObserver.disconnect();
     entry.target.isObservingResize = false;
   }
-  elsInViewport.delete (entry.target);
+  elsInViewport.delete(entry.target);
   entry.target.isHidden = true;
-  
-     
 }
-try 
-{
-  interObserver = new IntersectionObserver((entries) => {
-
-    const entered = [];
-    const exited = [];
-    entries.forEach((entry) => {
-
-      if (entry.isIntersecting) {
-        entered.push (entry.target);
-        /*
+try {
+  interObserver = new IntersectionObserver(
+    (entries) => {
+      const entered = [];
+      const exited = [];
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entered.push(entry.target);
+          /*
         elsAboveViewport = elsAboveViewport.filter (e => e !== entry.target);
         entry.target.style.height = '';
         entry.target.style.overflowY = '';
         */
-        elsInViewport.add (entry.target);
-       
-        entry.target.isHidden = false;
-        entry.target.lastEntry = performance.now ();
+          elsInViewport.add(entry.target);
 
+          entry.target.isHidden = false;
+          entry.target.lastEntry = performance.now();
 
-       // elEnteredCb.forEach (cb => cb (entry.target))
-      } else {
-       
-        exited.push (entry.target);
-          removeEntry (entry);
-     
-      
-        //const rect = entry.target.getBoundingClientRect ();
-        //if(rect.bottom < 0)
- 
-        //elExitedCb.forEach (cb => cb(entry.target));
+          // elEnteredCb.forEach (cb => cb (entry.target))
+        } else {
+          exited.push(entry.target);
+          removeEntry(entry);
 
+          //const rect = entry.target.getBoundingClientRect ();
+          //if(rect.bottom < 0)
 
-      } 
-    });
-    
+          //elExitedCb.forEach (cb => cb(entry.target));
+        }
+      });
 
+      elsEntered.forEach((cb) => cb(entered));
+      elsExited.forEach((cb) => cb(exited));
 
-    elsEntered.forEach (cb => cb(entered));
-    elsExited.forEach (cb => cb(exited));
+      if (!viewportStarted) userIsScrolling();
 
-    if(!viewportStarted)
-      userIsScrolling ();
-    
-    viewportStarted = true;
-
-
-  }, {root: null, rootMargin: '100%', threshold: 0});
-}catch(err) {}
-
+      viewportStarted = true;
+    },
+    { root: null, rootMargin: "100%", threshold: 0 }
+  );
+} catch (err) {}
 
 /*
 async function loadReact() {
@@ -279,66 +246,66 @@ async function loadReact() {
 loadReact();
 */
 const fluidPropertyNames = [
-  'padding-min',
-  'padding-top',
-  'padding-bottom',
-  'padding-left',
-  'padding-right',
-  'margin-min',
-  'margin-top',
-  'margin-bottom',
-  'margin-left',
-  'margin-right',
-  'gap',
-  'column-gap',
-  'row-gap',
-  'columns-min',
-  'rows-min',
-  'grid-auto',
-  'grid-auto-fit',
-  'grid-auto-fill',
-  'grid-template-columns',
-  'grid-template-rows',
-  'grid-auto-rows',
-  'grid-auto-fit-rows',
-  'grid-auto-fill-rows',
-  'width',
-  'height',
-  'font-size',
-  'box-shadow-min',
-  'box-shadow-x',
-  'box-shadow-y',
-  'box-shadow-spread',
-  'background-size-min',
-  'background-width',
-  'background-height',
-  'background-position-min',
-  'background-position-x',
-  'background-position-y',
-  'border-radius-min',
-  'border-top-left-radius',
-  'border-top-right-radius',
-  'border-bottom-right-radius',
-  'border-bottom-left-radius',
-  'border-width-min',
-  'border-top-width',
-  'border-left-width',
-  'border-right-width',
-  'border-bottom-width',
-  'line-height',
-  'top',
-  'bottom',
-  'left',
-  'right',
-  'flex-basis',
-  'flex',
-  'letter-spacing',
-  'max-width',
-  'max-height'
+  "padding-min",
+  "padding-top",
+  "padding-bottom",
+  "padding-left",
+  "padding-right",
+  "margin-min",
+  "margin-top",
+  "margin-bottom",
+  "margin-left",
+  "margin-right",
+  "gap",
+  "column-gap",
+  "row-gap",
+  "columns-min",
+  "rows-min",
+  "grid-auto",
+  "grid-auto-fit",
+  "grid-auto-fill",
+  "grid-template-columns",
+  "grid-template-rows",
+  "grid-auto-rows",
+  "grid-auto-fit-rows",
+  "grid-auto-fill-rows",
+  "width",
+  "height",
+  "font-size",
+  "box-shadow-min",
+  "box-shadow-x",
+  "box-shadow-y",
+  "box-shadow-spread",
+  "background-size-min",
+  "background-width",
+  "background-height",
+  "background-position-min",
+  "background-position-x",
+  "background-position-y",
+  "border-radius-min",
+  "border-top-left-radius",
+  "border-top-right-radius",
+  "border-bottom-right-radius",
+  "border-bottom-left-radius",
+  "border-width-min",
+  "border-top-width",
+  "border-left-width",
+  "border-right-width",
+  "border-bottom-width",
+  "line-height",
+  "top",
+  "bottom",
+  "left",
+  "right",
+  "flex-basis",
+  "flex",
+  "letter-spacing",
+  "max-width",
+  "max-height",
 ];
 const fluidPropertySync = {
-  columns: 'grid-template-columns',
-  rows: 'grid-template-rows',
+  columns: "grid-template-columns",
+  rows: "grid-template-rows",
 };
 /*
 const noMin = [
@@ -373,7 +340,7 @@ let usingJSON;
 let usingPartials = true;
 let autoApply = true;
 let checkUsage = false;
-let autoTransition = {onlyStart:true};
+let autoTransition = { onlyStart: true };
 let minimizedMode = true;
 let enableComments = false;
 let observerPaused = false;
@@ -386,10 +353,9 @@ class FluidScale {
   minBreakpoint = 300;
   maxBreakpoint = 1085;
 
-  static async create (el, bps, config = {})
-  {
-    const fs = new FluidScale (el, config);
-    await fs.init (el, bps, config);
+  static async create(el, bps, config = {}) {
+    const fs = new FluidScale(el, config);
+    await fs.init(el, bps, config);
     return fs;
   }
   constructor(el, config = {}) {
@@ -401,16 +367,12 @@ class FluidScale {
     }
   }
 
-  async init(
-    el,
-    bps,
-    { minBp, maxBp, json, autoTransition = true }
-  ) {
+  async init(el, bps, { minBp, maxBp, json, autoTransition = true }) {
     if (json) await loadJSON(json);
 
     let wasParsed = stylesParsed;
 
-    await parseStyles (json, checkUsage);
+    await parseStyles(json, checkUsage);
 
     this.breakpoints = bps || breakpoints;
     this.minBreakpoint = minBp || minBreakpoint || this.breakpoints[0];
@@ -418,17 +380,17 @@ class FluidScale {
       maxBp || maxBreakpoint || this.breakpoints[this.breakpoints.length - 1];
     this.autoTransition = autoTransition;
     this.elVariables = {};
-    this.animateBound = this.animate.bind (this);
+    this.animateBound = this.animate.bind(this);
     this.updateBound = this.update.bind(this);
-    this.elsEnteredBound = this.elsEntered.bind (this);
-    this.elsExitedBound = this.elsExited.bind (this);
-    elsEntered.push (this.elsEnteredBound);
-    elsExited.push (this.elsExitedBound);
+    this.elsEnteredBound = this.elsEntered.bind(this);
+    this.elsExitedBound = this.elsExited.bind(this);
+    elsEntered.push(this.elsEnteredBound);
+    elsExited.push(this.elsExitedBound);
     this.onResizeBound = this.onResize.bind(this);
-    window.addEventListener ('resize', this.onResizeBound);
-    window.addEventListener ('pointerup', this.onMouseUpBound);
+    window.addEventListener("resize", this.onResizeBound);
+    window.addEventListener("pointerup", this.onMouseUpBound);
 
-    rootFontSizeChanged.push (this.updateBound);
+    rootFontSizeChanged.push(this.updateBound);
 
     this.fluidVariableSelectors = fluidVariableSelectors;
     /*
@@ -458,7 +420,7 @@ class FluidScale {
       }
     } else this.fluidVariableSelectors = fluidVariableSelectors;*/
 
-    if (el) this.addElements([el, ...el.querySelectorAll('*')]);
+    if (el) this.addElements([el, ...el.querySelectorAll("*")]);
   }
 
   onMutation(mutations) {
@@ -475,87 +437,80 @@ class FluidScale {
   activeElements = new Set();
   allElementsSeen = [];
 
-  processAnchorData (el, anchor)
-  {
+  processAnchorData(el, anchor) {
     const anchorData = this.fluidVariableSelectors[anchor];
 
-    if (!anchorData)
-      return;
+    if (!anchorData) return;
 
-    for(const [root, selectorText, variableArr] of anchorData)
-    {
-      if (!el.matches (root))
-        continue;
+    for (const [root, selectorText, variableArr] of anchorData) {
+      if (!el.matches(root)) continue;
 
-      for (const [variableName, variableObjArr] of variableArr)
-      {
+      for (const [variableName, variableObjArr] of variableArr) {
         const first = variableObjArr[0];
         first.selector = selectorText;
         if (first.isPseudo || first.dynamic)
-          this.processVariableObjArrToFp (el, variableObjArr, variableName);
-        else 
-        {
+          this.processVariableObjArrToFp(el, variableObjArr, variableName);
+        else {
           const currentMain = el.mainFp[variableName];
-          if(!currentMain || currentMain[0].order < first.order)
+          if (!currentMain || currentMain[0].order < first.order)
             el.mainFp[variableName] = variableObjArr;
         }
-        
       }
     }
   }
 
-  processVariableObjArrToFp (el, variableObjArr, variableName)
-  {
-        const vbbp = new Array (this.breakpoints.length);
+  processVariableObjArrToFp(el, variableObjArr, variableName) {
+    const vbbp = new Array(this.breakpoints.length);
 
-        for(const variableObj of variableObjArr)
-          vbbp[variableObj.bpIndex] = variableObj;
+    for (const variableObj of variableObjArr)
+      vbbp[variableObj.bpIndex] = variableObj;
 
-        const fluidProperty = FluidProperty.Parse (el, variableName, vbbp, this.breakpoints, this.autoTransition, this.computedStyleCache, this.boundClientRectCache, this);
-        el.fluidProperties.push (fluidProperty);
+    const fluidProperty = FluidProperty.Parse(
+      el,
+      variableName,
+      vbbp,
+      this.breakpoints,
+      this.autoTransition,
+      this.computedStyleCache,
+      this.boundClientRectCache,
+      this
+    );
+    el.fluidProperties.push(fluidProperty);
   }
   //newElements = new Set();
   addElements(els) {
-
-    const time = performance.now ();
+    const time = performance.now();
 
     els.forEach((el) => {
-    
-        if(!el.state)
-        {
-          el.state = {};
-          el.states = [];
-        }
-        const elFluidProperties = [];
-        el.fluidProperties = elFluidProperties;
-        el.mainFp = {};
-        el.fs = this;
-        let added = false;
+      if (!el.state) {
+        el.state = {};
+        el.states = [];
+      }
+      const elFluidProperties = [];
+      el.fluidProperties = elFluidProperties;
+      el.mainFp = {};
+      el.fs = this;
+      let added = false;
 
+      if (document.body.contains(el) && el !== document.body)
+        interObserver.observe(el);
 
-        if (document.body.contains (el) && el !== document.body)
-        interObserver.observe (el);
-
-       
-        if(el.classList.length > 0)
-        {
-          for(const klass of el.classList)
-          {
-            this.processAnchorData (el, `.${klass}`);
-          }
-
-          if (el.id)
-            this.processAnchorData (el, `#${el.id}`);
-
-          this.processAnchorData (el, el.tagName.toLowerCase ());
+      if (el.classList.length > 0) {
+        for (const klass of el.classList) {
+          this.processAnchorData(el, `.${klass}`);
         }
 
-      for(const [variableName, val] of Object.entries (el.mainFp))
-        this.processVariableObjArrToFp (el, val, variableName);
+        if (el.id) this.processAnchorData(el, `#${el.id}`);
+
+        this.processAnchorData(el, el.tagName.toLowerCase());
+      }
+
+      for (const [variableName, val] of Object.entries(el.mainFp))
+        this.processVariableObjArrToFp(el, val, variableName);
 
       //if (elFluidProperties.length > 0)
-        //this.newElements.add (el);
-/*
+      //this.newElements.add (el);
+      /*
         const classKey = getClassSelector(el);
 
         if (false && this.classCache.has(classKey)) {
@@ -638,36 +593,34 @@ class FluidScale {
             }
           });
         }*/
-      });
-      
+    });
+
     if (this.autoTransition) {
       const { time, easing, delay } =
-        typeof this.autoTransition === 'object' ? this.autoTransition : {};
+        typeof this.autoTransition === "object" ? this.autoTransition : {};
       for (const el of els) {
         if (!el.variables) continue;
         const varTransitions = el.variables.map(
           (variable) =>
-            `${variable} ${time || '300'}ms ${easing || 'ease'} ${delay || ''}`
+            `${variable} ${time || "300"}ms ${easing || "ease"} ${delay || ""}`
         );
 
-        const transitions = el.transitions 
+        const transitions = el.transitions
           ? [...el.transitions, ...varTransitions]
           : varTransitions;
-        el.transitionStr = transitions.join(', ');
+        el.transitionStr = transitions.join(", ");
         //el.transitionBaseStr = el.transitions ? [...el.transitions].join(', ') : '';
-        el.style.setProperty ('transition', el.transitionStr);
-       //el.style.transition = el.transitionStr;
+        el.style.setProperty("transition", el.transitionStr);
+        //el.style.transition = el.transitionStr;
       }
     }
-  
 
     if (this.observeRemove) {
     }
-    if(!this.startedAnimate)
-    {
+    if (!this.startedAnimate) {
       this.startedAnimate = true;
       waitForPageLoad().then(() => {
-        requestAnimationFrame (this.animateBound);
+        requestAnimationFrame(this.animateBound);
       });
     }
   }
@@ -678,16 +631,12 @@ class FluidScale {
     );
   }
 
+  animate() {
+    if (this.destroyed) return;
 
- 
-  animate ()
-  {
-    if(this.destroyed)
-      return;
+    this.update();
 
-    this.update ();
-
-    requestAnimationFrame (this.animateBound);
+    requestAnimationFrame(this.animateBound);
   }
   /*
   updateDebounceCb = null
@@ -705,30 +654,29 @@ class FluidScale {
     }
   }*/
 
-    resizeTimer;
+  resizeTimer;
 
-    lastResizeWidth = getStableWindowWidth();
-    onResize ()
-    {
-      const width = getStableWindowWidth ();
-      const lastResizeWidth = this.lastResizeWidth;
-      this.lastResizeWidth = width;
+  lastResizeWidth = getStableWindowWidth();
+  onResize() {
+    const width = getStableWindowWidth();
+    const lastResizeWidth = this.lastResizeWidth;
+    this.lastResizeWidth = width;
 
-      if (Math.abs (width - lastResizeWidth) < 1)
-        return;
-      
-      clearTimeout(this.resizeTimer);
-  this.resizeTimer = setTimeout(() => {
-    this.updateAboveViewport = true;
-  }, isMobileOrTablet ? 16 : 200); 
-    }
+    if (Math.abs(width - lastResizeWidth) < 1) return;
 
+    clearTimeout(this.resizeTimer);
+    this.resizeTimer = setTimeout(
+      () => {
+        this.updateAboveViewport = true;
+      },
+      isMobileOrTablet ? 16 : 200
+    );
+  }
 
   computedStyleCache = new Map();
   boundClientRectCache = new Map();
 
-  calcCurrentWidth ()
-  {
+  calcCurrentWidth() {
     let currentWidth =
       window.vpWidth < this.minBreakpoint
         ? this.minBreakpoint
@@ -736,8 +684,7 @@ class FluidScale {
         ? this.maxBreakpoint
         : window.vpWidth;
 
-    if(currentWidth === this.currentWidth)
-      return;
+    if (currentWidth === this.currentWidth) return;
 
     if (this.breakpoints.length === 0) return;
 
@@ -754,68 +701,57 @@ class FluidScale {
     } else {
       for (let i = this.breakpoints.length - 1; i >= 0; i--) {
         if (currentWidth < this.breakpoints[i]) continue;
-      
+
         currentBpIndex = i;
         break;
       }
     }
-   
+
     this.currentBpIndex = currentBpIndex;
   }
 
-  elsEntered (els)
-  {
-    for(const el of els)
-    {
-      if (el.fs !== this)
-        continue;
+  elsEntered(els) {
+    for (const el of els) {
+      if (el.fs !== this) continue;
 
-      if (el.fluidProperties.length <= 0)
-        continue;
+      if (el.fluidProperties.length <= 0) continue;
 
-      this.activeElements.add (el);
-      this.inactiveEls.delete (el);
+      this.activeElements.add(el);
+      this.inactiveEls.delete(el);
     }
   }
 
-  elsExited (els)
-  {
-   for(const el of els)
-   {
-    if(el.fs !== this)
-      continue;
+  elsExited(els) {
+    for (const el of els) {
+      if (el.fs !== this) continue;
 
-    if (el.fluidProperties.length <= 0)
-      continue;
+      if (el.fluidProperties.length <= 0) continue;
 
-      this.activeElements.delete (el);
-      this.inactiveEls.add (el);
+      this.activeElements.delete(el);
+      this.inactiveEls.add(el);
     }
   }
-
 
   fluidState = [];
 
   started = false;
   lastTopEl;
   lastWidthShift = performance.now();
-  lastWindowWidth = getStableWindowWidth ();
+  lastWindowWidth = getStableWindowWidth();
   inactiveEls = new Set();
   updateTime = 0;
   didAnchorFix = false;
   lastScrollY = window.scrollY;
   update() {
-    this.updateTime = performance.now ();
+    this.updateTime = performance.now();
 
     window.vpWidth = window.innerWidth;
     window.vpHeight = window.innerHeight;
 
-    this.calcCurrentWidth ();
+    this.calcCurrentWidth();
 
-    
     const elsToRemove = [];
-    for (const el of this.activeElements)
-      this.updateElement (el, elsToRemove);
+    for (const el of this.activeElements) this.updateElement(el, elsToRemove);
 
     /*for(const el of this.newElements)
       this.updateElement (el, elsToRemove);
@@ -823,27 +759,20 @@ class FluidScale {
     if(this.newElements.size > 0)
       this.newElements = new Set();*/
 
-    if (this.updateAboveViewport)
-    {
-      
-      for (const el of this.inactiveEls)
-        this.updateElement (el, elsToRemove);
+    if (this.updateAboveViewport) {
+      for (const el of this.inactiveEls) this.updateElement(el, elsToRemove);
 
-      if(!isMobileOrTablet)
-        this.inactiveEls = new Set();
+      if (!isMobileOrTablet) this.inactiveEls = new Set();
     }
 
-    for(const el of elsToRemove)
-      this.activeElements.delete (el);
+    for (const el of elsToRemove) this.activeElements.delete(el);
 
     this.computedStyleCache.clear();
-    this.boundClientRectCache.clear ();
+    this.boundClientRectCache.clear();
 
-   
-  if(scrollFix)
-  {
-    this.applyScrollFix ();
-  /*
+    if (scrollFix) {
+      this.applyScrollFix();
+      /*
     if (justShifted) {
       scrollContainer.style.transform = `translateY(${-currentScroll}px)`;
      
@@ -859,138 +788,105 @@ class FluidScale {
 */
     }
 
-    this.lastWindowWidth = getStableWindowWidth() ;
+    this.lastWindowWidth = getStableWindowWidth();
     this.lastScrollY = window.scrollY;
     this.updateAboveViewport = false;
-    if(viewportStarted)
-      this.started = true;
-
-
+    if (viewportStarted) this.started = true;
   }
 
+  updateElement(el, elsToRemove = null) {
+    if (!el.isConnected) {
+      if (elsToRemove) elsToRemove.push(el);
+      return false;
+    }
 
-  updateElement (el, elsToRemove = null)
-  {
-    if (!el.isConnected )
-      {
-        if (elsToRemove)
-          elsToRemove.push (el)
-        return false;
-      }
+    if (el.updateTime === this.updateTime) return false;
 
-      if (el.updateTime === this.updateTime)
-        return false;
+    el.updateTime = this.updateTime;
 
-      el.updateTime = this.updateTime;
+    el.calcedPerc = false;
 
-      el.calcedPerc = false;
+    for (const fp of el.fluidProperties)
+      fp.update(this.currentBpIndex, this.currentWidth);
 
-      for (const fp of el.fluidProperties)
-        fp.update (this.currentBpIndex, this.currentWidth);
+    for (const state of el.states) {
+      const { value, el, propertyName, fp, order, valueApplied } = state;
 
+      const valueChanged =
+        value !== valueApplied || state.inlineActive === false;
 
-      for (const state of el.states)
-      {
-    
-        const { value, el, propertyName, fp, order, valueApplied} = state;
-        
-        const valueChanged = value !== valueApplied || state.inlineActive === false;
-      
-        
-        if (valueChanged && !state.inlineActive)
-        {
-          state.inlineActive = null;
-  
-          if (value === null)
-          {
-            el.style.removeProperty (propertyName); 
-            this.postStateApply (state, value, order, fp);
+      if (valueChanged && !state.inlineActive) {
+        state.inlineActive = null;
+
+        if (value === null) {
+          el.style.removeProperty(propertyName);
+          this.postStateApply(state, value, order, fp);
+        } else {
+          let delayedWrite;
+          if (this.autoTransition?.onlyStart && !state.isDelayed) {
+            if (!this.started && elsInViewport.has(el)) {
+              if (!isFirefox) delayedWrite = true;
+
+              el.style.transition = el.transitionStr;
+            } else {
+              el.style.transition = "none";
+            }
           }
-          else 
-          {
-            let delayedWrite;
-            if(this.autoTransition?.onlyStart && !state.isDelayed)
-              {
-                if(!this.started && elsInViewport.has (el))
-                {
-                  if(!isFirefox)
-                    delayedWrite = true;
-                  
 
-                  el.style.transition = el.transitionStr;
-                }
-                else 
-                {
-                  el.style.transition = 'none';
-                }
-                
-              }
-              
-              if (delayedWrite)
-                state.isDelayed = true;
-              else 
-              {
-                el.style.setProperty (propertyName, value);
-                this.postStateApply (state, value, order, fp);
-                if(this.autoTransition?.onlyStart)
-                {
-                  if(state.isDelayed)
-                    requestAnimationFrame(() => setTimeout(() => (el.style.transition = ''), this.autoTransition.time || 300));
-                  else 
-                    requestAnimationFrame (() => el.style.transition = '');
+          if (delayedWrite) state.isDelayed = true;
+          else {
+            el.style.setProperty(propertyName, value);
+            this.postStateApply(state, value, order, fp);
+            if (this.autoTransition?.onlyStart) {
+              if (state.isDelayed)
+                requestAnimationFrame(() =>
+                  setTimeout(
+                    () => (el.style.transition = ""),
+                    this.autoTransition.time || 300
+                  )
+                );
+              else requestAnimationFrame(() => (el.style.transition = ""));
 
-                    state.isDelayed = false;
-                }
-              }
-            
+              state.isDelayed = false;
+            }
           }
-           
         }
-       // state.lastValue = value;
-       // state.order = -1;
-       //state.lastFp = fp;
-        state.lastDynamicChange = state.dynamicChange
-        
-        state.dynamicChange = null
-        state.value = null;
-        state.fp = null;
-        state.order = -1;
       }
+      // state.lastValue = value;
+      // state.order = -1;
+      //state.lastFp = fp;
+      state.lastDynamicChange = state.dynamicChange;
 
-      el.resized = false;
+      state.dynamicChange = null;
+      state.value = null;
+      state.fp = null;
+      state.order = -1;
+    }
 
-      return true;
+    el.resized = false;
+
+    return true;
   }
-  
-  
-postStateApply (state, value, order, fp)
-{
 
-  state.valueApplied = value;
-  state.widthApplied = window.vpWidth;
-  state.fpApplied = fp;
-  state.orderApplied = order;
+  postStateApply(state, value, order, fp) {
+    state.valueApplied = value;
+    state.widthApplied = window.vpWidth;
+    state.fpApplied = fp;
+    state.orderApplied = order;
 
-  if(state.el.calcedPerc && !state.el.isObservingResize)
-  {
-    
-    if (!state.el.resizeObserver)
-    state.el.resizeObserver = new ResizeObserver (() =>
-    {
+    if (state.el.calcedPerc && !state.el.isObservingResize) {
+      if (!state.el.resizeObserver)
+        state.el.resizeObserver = new ResizeObserver(() => {
+          if (state.el.calcedPerc) state.el.resized = true;
+        });
 
-      if (state.el.calcedPerc)
-        state.el.resized = true;
-    });
-
-
-    state.el.resizeObserver.observe (state.el.parentElement);
-    state.el.isObservingResize = true;
+      state.el.resizeObserver.observe(state.el.parentElement);
+      state.el.isObservingResize = true;
+    }
   }
-}
-  applyScrollFix ()
-{
-   //let justShifted;
-    
+  applyScrollFix() {
+    //let justShifted;
+
     /* 
     if (topEl)
     {
@@ -1021,94 +917,95 @@ postStateApply (state, value, order, fp)
           el.locked = true;
         }
       })*/
-        const didShift = Math.abs (getStableWindowWidth() - this.lastWindowWidth) >= 1;
+    const didShift =
+      Math.abs(getStableWindowWidth() - this.lastWindowWidth) >= 1;
 
-        if(didShift)
-          isUserScrolling = false;
-        
-        if(didShift || this.updateAboveViewport)
-        {
-          this.lastWasUpdateAboveVp = this.updateAboveViewport;
-          this.lastWidthShift = performance.now();
+    if (didShift) isUserScrolling = false;
+
+    if (didShift || this.updateAboveViewport) {
+      this.lastWasUpdateAboveVp = this.updateAboveViewport;
+      this.lastWidthShift = performance.now();
+    }
+    if (
+      performance.now() - this.lastWidthShift <= 500 &&
+      topEl &&
+      !isUserScrolling
+    ) {
+      if (this.lastWasUpdateAboveVp) void document.body.offsetHeight;
+
+      let rect = topEl.getBoundingClientRect();
+
+      let zeroEl;
+      if (rect.width === 0 && rect.height === 0) {
+        zeroEl = topEl;
+        const [newEl, newRect] = getElementOneUpFromLastTop();
+        if (newEl) {
+          topEl = newEl;
+          rect = newRect;
         }
-      if (performance.now() - this.lastWidthShift <= 500 && topEl && !isUserScrolling)
-     {
-  
-      if(this.lastWasUpdateAboveVp)
-        void document.body.offsetHeight;
-      
-      let rect = topEl.getBoundingClientRect ();
+      }
 
-    let zeroEl;
-    if(rect.width === 0 && rect.height === 0)
-    {
-      zeroEl = topEl;
-      const [newEl, newRect] = getElementOneUpFromLastTop();
-      if (newEl)
-      {
-        topEl = newEl;
-        rect = newRect;
+      if (topEl !== zeroEl) {
+        rect = topEl.getBoundingClientRect();
+        const newTop = Math.round(rect.top);
+
+        const distance = newTop - lastTop;
+        const tolerance = 0;
+
+        if (Math.abs(distance) > tolerance) {
+          const clampedDistance =
+            distance > 0 ? distance - tolerance : distance + tolerance;
+
+          let targetY = window.scrollY + clampedDistance;
+
+          window.scrollTo({
+            top: targetY,
+            behavior: "auto",
+          });
+          this.didAnchorFix = true;
+        }
+        //targetScroll += distance;
+        // currentScroll = targetScroll;
+        //justShifted = true;
       }
     }
 
-    if(topEl !== zeroEl)
-    {
-    rect = topEl.getBoundingClientRect ();
-    const newTop = Math.round(rect.top);
-   
-    const distance = newTop - lastTop;
-      const tolerance = 0;
+    if (this.lastScrollY !== window.scrollY && !this.didAnchorFix)
+      userIsScrolling();
 
-    if(Math.abs(distance) > tolerance)
-    {
-      const clampedDistance = distance > 0
-    ? distance - tolerance
-    : distance + tolerance;
-
-
-      let targetY = window.scrollY + clampedDistance;
-
-      window.scrollTo({
-        top: targetY,
-        behavior: 'auto'
-      })
-      this.didAnchorFix = true;
-    }
-      //targetScroll += distance;
-     // currentScroll = targetScroll;
-      //justShifted = true;
-    }
-
+    this.didAnchorFix = false;
   }
 
-  if (this.lastScrollY !== window.scrollY && !this.didAnchorFix)
-    userIsScrolling ();
-  
-  
-  this.didAnchorFix = false;
-}
-
   destroy() {
-  
     this.destroyed = true;
-    rootFontSizeChanged.splice (rootFontSizeChanged.findIndex (this.updateBound), 1);
+    rootFontSizeChanged.splice(
+      rootFontSizeChanged.findIndex(this.updateBound),
+      1
+    );
     this.observer?.disconnect();
   }
 }
-
 
 class FluidProperty {
   //noMin = false;
   //noUnit = false;
   breakpoints = [];
-  constructor(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, boundClientRectCache, fs) {
+  constructor(
+    el,
+    name,
+    valuesByBreakpoint,
+    breakpoints,
+    computedStyleCache,
+    boundClientRectCache,
+    fs
+  ) {
     this.el = el;
     this.fs = fs;
     this.name = name;
-    this.isSet = '';
+    this.isSet = "";
     this.valuesByBreakpoint = valuesByBreakpoint;
-    
-    this.order  = valuesByBreakpoint.find (vbbp => vbbp).order;
+
+    this.order = valuesByBreakpoint.find((vbbp) => vbbp).order;
     /*breakpoints.map((bp, index) =>
       valuesByBreakpoint.find((vbbp) => vbbp?.bpIndex === index)
     );*/
@@ -1117,92 +1014,81 @@ class FluidProperty {
     this.boundClientRectCache = boundClientRectCache;
     this.active = true;
 
-    if(forceGPU)
-      constructGPUVersion (this);
-    
+    if (forceGPU) constructGPUVersion(this);
+
     //if (name === 'line-height') this.noUnit = true;
 
-    if(name.startsWith ('grid-auto'))
-    {
+    if (name.startsWith("grid-auto")) {
       this.customTransition = {
-        startTime: performance.now (),
+        startTime: performance.now(),
         time: autoTransition?.time || 300,
-        easing: autoTransition?.easing || 'ease',
-        delay: autoTransition?.delay || 0
-      }
+        easing: autoTransition?.easing || "ease",
+        delay: autoTransition?.delay || 0,
+      };
     }
-    if (valuesByBreakpoint[0]?.isPseudo)
-      {
-        this.isPseudo = true;
-        this.pseudoSel = valuesByBreakpoint[0].selector;
-      }
-      else 
-    if (valuesByBreakpoint[0]?.dynamic)
-    {
-      const observedAttribs = ['class', ...valuesByBreakpoint[0].attribs || []];
+    if (valuesByBreakpoint[0]?.isPseudo) {
+      this.isPseudo = true;
+      this.pseudoSel = valuesByBreakpoint[0].selector;
+    } else if (valuesByBreakpoint[0]?.dynamic) {
+      const observedAttribs = [
+        "class",
+        ...(valuesByBreakpoint[0].attribs || []),
+      ];
       const selector = valuesByBreakpoint[0].selector;
-      this.active = el.matches (selector);
+      this.active = el.matches(selector);
       this.observer = new MutationObserver((mutationsList) => {
         for (const mutation of mutationsList) {
-          if (mutation.type === 'attributes' && observedAttribs.includes (mutation.attributeName)) {
-           this.active = el.matches (selector);
+          if (
+            mutation.type === "attributes" &&
+            observedAttribs.includes(mutation.attributeName)
+          ) {
+            this.active = el.matches(selector);
           }
         }
       });
 
       this.observer.observe(el, {
         attributes: true,
-        attributeFilter: observedAttribs
+        attributeFilter: observedAttribs,
       });
-    } 
+    }
 
-   
-      let propertyName;
-      if (autoApply) {
-        propertyName = fluidPropertySync[name] || name;
-  
-        if (name === 'grid-auto' || name === 'grid-auto-fit')
-        {
-          propertyName = 'grid-template-columns';
-        }
-        else if (name === 'grid-auto-fill')
-        {
-          propertyName = 'grid-template-columns';
-        }
-        else if (name === 'grid-auto-rows' || name === 'grid-auto-fit-rows')
-        {
-          propertyName = 'grid-template-rows';
-        }
-          else if (name === 'grid-auto-fill')
-          {
-            propertyName = 'grid-template-rows';
-          }
+    let propertyName;
+    if (autoApply) {
+      propertyName = fluidPropertySync[name] || name;
+
+      if (name === "grid-auto" || name === "grid-auto-fit") {
+        propertyName = "grid-template-columns";
+      } else if (name === "grid-auto-fill") {
+        propertyName = "grid-template-columns";
+      } else if (name === "grid-auto-rows" || name === "grid-auto-fit-rows") {
+        propertyName = "grid-template-rows";
+      } else if (name === "grid-auto-fill") {
+        propertyName = "grid-template-rows";
       }
-      else {
+    } else {
       propertyName = `--fluid-${this.name}-value`;
-      }
+    }
 
     this.propertyName = propertyName;
     //for (const noMinEntry of noMin) if (name === noMinEntry) this.noMin = true;
 
     let state = el.state[propertyName];
 
-    if(!state)
-      state = el.state[propertyName] = {};
+    if (!state) state = el.state[propertyName] = {};
 
-    if (!state.isInit)
-    {
-      state.order =  -1;
+    if (!state.isInit) {
+      state.order = -1;
       state.value = null;
       state.el = el;
       state.propertyName = propertyName;
-      el.states.push (state);
+      el.states.push(state);
       state.isInit = true;
     }
 
-      this.state = state;
+    this.state = state;
   }
-/*
+  /*
   getValUnit(val) {
     return this.noUnit
       ? ''
@@ -1221,166 +1107,299 @@ class FluidProperty {
     return Number(val.replace('rem', '').replace('em', '').replace('%', ''));
   }*/
 
-  destroy ()
-  {
-    if (this.observer)
-      this.observer.disconnect ();
+  destroy() {
+    if (this.observer) this.observer.disconnect();
   }
 
- computeVal (val, units, property, el, computedStyleCache, boundClientRectCache)
-{
-  
-  if(Array.isArray (val))
-  {
-    return this.computeCalc(val[0], val[1], units[1], property, el, computedStyleCache, boundClientRectCache);
+  computeVal(
+    val,
+    units,
+    property,
+    el,
+    computedStyleCache,
+    boundClientRectCache
+  ) {
+    if (Array.isArray(val)) {
+      return this.computeCalc(
+        val[0],
+        val[1],
+        units[1],
+        property,
+        el,
+        computedStyleCache,
+        boundClientRectCache
+      );
+    }
+    return this.convertToPx(
+      val,
+      units,
+      property,
+      el,
+      computedStyleCache,
+      boundClientRectCache
+    );
   }
-  return this.convertToPx (val, units, property, el, computedStyleCache, boundClientRectCache);
-}
 
- computeCalc (type, arr, units, property, el, computedStyleCache, boundClientRectCache)
-{
-  const pxValues = arr.map ((v, index) => isArithemtic (v) ? v : this.computeVal(v, units[index], property, el, computedStyleCache, boundClientRectCache));
+  computeCalc(
+    type,
+    arr,
+    units,
+    property,
+    el,
+    computedStyleCache,
+    boundClientRectCache
+  ) {
+    const pxValues = arr.map((v, index) =>
+      isArithemtic(v)
+        ? v
+        : this.computeVal(
+            v,
+            units[index],
+            property,
+            el,
+            computedStyleCache,
+            boundClientRectCache
+          )
+    );
 
-  switch(type)
-  {
-    case "break":
-      return ['break', pxValues[0]];
-    case "top":
-    case "left":
-      return 0 + pxValues.length > 0 ? pxValues[0] : 0;
-    case "right":
-      return getCachedBoundingClientRect (el, boundClientRectCache).width - (pxValues.length > 0 ? pxValues[0] : 0);
-    case "bottom":
- 
-      return getCachedBoundingClientRect (el, boundClientRectCache).height - (pxValues.length > 0 ? pxValues[0] : 0);
-    case "h-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).width / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
-    case "v-center":
-      return (getCachedBoundingClientRect (el, boundClientRectCache).height / 2 ) + (pxValues.length > 0 ? pxValues[0] : 0);
-    case "min":
-      return Math.min (...pxValues);
-    case "max":
-      return Math.max (...pxValues);
-    case "clamp": 
-      const [minVal, fluidVal, maxVal] = pxValues;
-      return Math.min(Math.max(fluidVal, minVal), maxVal);
-    case "calc":
-     // const expr = evalParser.parse (pxValues.join(' '));
-     // return expr.evaluate ();
-     return evaluateCalc (pxValues.join(' '));
-    case "minmax":
-      const style = getCachedComputedStyle (el, computedStyleCache);
-      switch(property)
-      {
-        case "grid-auto-fit":
-        case "grid-auto-fill": {
-          const gap = style.columnGap || style.gap || 0;
-          const gapProperty = style.columnGap ? 'column-gap' : "gap";
-          const gapVal = parseSingleVal (gap);
-          const gapUnit = extractUnit (gap, gapProperty);
-       
-          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).width, pxValues[0], pxValues[1], this.computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+    switch (type) {
+      case "break":
+        return ["break", pxValues[0]];
+      case "top":
+      case "left":
+        return 0 + pxValues.length > 0 ? pxValues[0] : 0;
+      case "right":
+        return (
+          getCachedBoundingClientRect(el, boundClientRectCache).width -
+          (pxValues.length > 0 ? pxValues[0] : 0)
+        );
+      case "bottom":
+        return (
+          getCachedBoundingClientRect(el, boundClientRectCache).height -
+          (pxValues.length > 0 ? pxValues[0] : 0)
+        );
+      case "h-center":
+        return (
+          getCachedBoundingClientRect(el, boundClientRectCache).width / 2 +
+          (pxValues.length > 0 ? pxValues[0] : 0)
+        );
+      case "v-center":
+        return (
+          getCachedBoundingClientRect(el, boundClientRectCache).height / 2 +
+          (pxValues.length > 0 ? pxValues[0] : 0)
+        );
+      case "min":
+        return Math.min(...pxValues);
+      case "max":
+        return Math.max(...pxValues);
+      case "clamp":
+        const [minVal, fluidVal, maxVal] = pxValues;
+        return Math.min(Math.max(fluidVal, minVal), maxVal);
+      case "calc":
+        // const expr = evalParser.parse (pxValues.join(' '));
+        // return expr.evaluate ();
+        return evaluateCalc(pxValues.join(" "));
+      case "minmax":
+        const style = getCachedComputedStyle(el, computedStyleCache);
+        switch (property) {
+          case "grid-auto-fit":
+          case "grid-auto-fill": {
+            const gap = style.columnGap || style.gap || 0;
+            const gapProperty = style.columnGap ? "column-gap" : "gap";
+            const gapVal = parseSingleVal(gap);
+            const gapUnit = extractUnit(gap, gapProperty);
+
+            return computeAutoFitGrid(
+              getCachedBoundingClientRect(el, boundClientRectCache).width,
+              pxValues[0],
+              pxValues[1],
+              this.computeVal(
+                gapVal,
+                gapUnit,
+                gapProperty,
+                el,
+                computedStyleCache,
+                boundClientRectCache
+              )
+            );
+          }
+          case "grid-auto-fit-rows":
+          case "grid-auto-fill-rows": {
+            const gap = style.rowap || style.gap || 0;
+            const gapProperty = style.rowGap ? "row-gap" : "gap";
+            const gapVal = parseSingleVal(gap);
+            const gapUnit = extractUnit(gap, gapProperty);
+            return computeAutoFitGrid(
+              getCachedBoundingClientRect(el, boundClientRectCache).height,
+              pxValues[0],
+              pxValues[1],
+              this.computeVal(
+                gapVal,
+                gapUnit,
+                gapProperty,
+                el,
+                computedStyleCache,
+                boundClientRectCache
+              )
+            );
+          }
         }
-        case "grid-auto-fit-rows":
-        case "grid-auto-fill-rows": {
-          const gap = style.rowap || style.gap || 0;
-          const gapProperty = style.rowGap ? 'row-gap' : "gap";
-          const gapVal = parseSingleVal (gap);
-          const gapUnit = extractUnit (gap, gapProperty);
-          return computeAutoFitGrid (getCachedBoundingClientRect(el, boundClientRectCache).height, pxValues[0], pxValues[1], this.computeVal (gapVal, gapUnit, gapProperty, el, computedStyleCache, boundClientRectCache))
+
+        return Math.max(pxValues[0], pxValues[1]);
+    }
+  }
+
+  convertToPx(
+    val,
+    unit,
+    property,
+    el,
+    computedStyleCache,
+    boundClientRectCache
+  ) {
+    switch (unit) {
+      case "px":
+        return val;
+      case "rem":
+        return val * rootFontSize;
+      case "em":
+        const targetEl = property === "font-size" ? el.parentElement : el;
+        if (this.fs.updateElement(targetEl)) {
+          clearCacheForEl(targetEl, computedStyleCache);
         }
-      }
+        const targetFontSize = getCachedComputedStyle(
+          targetEl,
+          computedStyleCache
+        ).fontSize;
 
-      return Math.max(pxValues[0], pxValues[1]);
+        const targetVal = parseSingleVal(targetFontSize);
+        const targetUnit = extractUnit(targetFontSize, "font-size");
+
+        return (
+          this.convertToPx(
+            targetVal,
+            targetUnit,
+            "font-size",
+            targetEl,
+            computedStyleCache,
+            boundClientRectCache
+          ) * val
+        );
+      case "%":
+        if (this.fs.updateElement(el.parentElement)) {
+          clearCacheForEl(el.parentElement, computedStyleCache);
+          clearCacheForEl(el.parentElement, boundClientRectCache);
+        }
+        const parentStyle = getCachedComputedStyle(
+          el.parentElement,
+          computedStyleCache
+        );
+        const parentEl = el.parentElement;
+        el.calcedPerc = true;
+
+        switch (property) {
+          case "height":
+          case "top":
+          case "bottom":
+            const padTop = parentStyle.paddingTop;
+            const padBtm = parentStyle.paddingBottom;
+            const padding =
+              this.convertToPx(
+                parseSingleVal(padTop),
+                extractUnit(padTop, "padding-top"),
+                "padding-top",
+                parentEl,
+                computedStyleCache,
+                boundClientRectCache
+              ) +
+              this.convertToPx(
+                parseSingleVal(padBtm),
+                extractUnit(padBtm, "padding-bottom"),
+                "padding-bottom",
+                parentEl,
+                computedStyleCache,
+                boundClientRectCache
+              );
+            return (
+              (val / 100) *
+              (getCachedBoundingClientRect(
+                el.parentElement,
+                boundClientRectCache
+              ).height -
+                padding)
+            );
+        }
+
+        const padLeft = parentStyle.paddingLeft;
+        const padRight = parentStyle.paddingRight;
+        const padding =
+          this.convertToPx(
+            parseSingleVal(padLeft),
+            extractUnit(padLeft, "padding-left"),
+            "padding-left",
+            parentEl,
+            computedStyleCache,
+            boundClientRectCache
+          ) +
+          this.convertToPx(
+            parseSingleVal(padRight),
+            extractUnit(padRight, "padding-right"),
+            "padding-right",
+            parentEl,
+            computedStyleCache,
+            boundClientRectCache
+          );
+
+        return (
+          (val / 100) *
+          (getCachedBoundingClientRect(el.parentElement, boundClientRectCache)
+            .width -
+            padding)
+        );
+
+      case "vw":
+        return (val / 100) * window.vpWidth;
+      case "vh":
+        return (val / 100) * window.vpHeight;
+
+      case "vmin":
+        return (val / 100) * Math.min(window.vpWidth, window.vpHeight);
+      case "vmax":
+        return (val / 100) * Math.max(window.vpWidth, window.vpHeight);
+
+      case "cm":
+      case "mm":
+      case "in":
+      case "pt":
+      case "pc":
+        return val * unitToPx[unit];
+
+      case "ch":
+      case "ex":
+        return val * getCharUnit(el, unit, getCachedComputedStyle(el));
+
+      case "lh":
+        const style = getCachedComputedStyle(el, computedStyleCache);
+        const fontSize = style.fontSize;
+        const fsVal = parseSingleVal(fontSize);
+        const fsUnit = extractUnit(fontSize, "font-size");
+        const fontSizePx = this.convertToPx(
+          fsVal,
+          fsUnit,
+          "font-size",
+          el,
+          computedStyleCache,
+          boundClientRectCache
+        );
+
+        if (val === "normal") return fontSizePx * 1.2;
+
+        return fontSizePx * val;
+    }
+
+    return val;
   }
-}
-
- convertToPx (val, unit, property, el, computedStyleCache, boundClientRectCache)
-{
-  
-  switch(unit)
-  {
-    case "px":
-      return val;
-    case "rem":
-      return val * rootFontSize;
-    case "em":
-      const targetEl = property === 'font-size' ? el.parentElement : el;
-      if (this.fs.updateElement (targetEl))
-      {
-        clearCacheForEl (targetEl, computedStyleCache);
-      }
-      const targetFontSize = getCachedComputedStyle (targetEl, computedStyleCache).fontSize;
-
-      const targetVal = parseSingleVal (targetFontSize);
-      const targetUnit = extractUnit (targetFontSize, 'font-size');
-
-      return this.convertToPx(targetVal, targetUnit, 'font-size', targetEl, computedStyleCache, boundClientRectCache) * val;
-    case "%":
-      if (this.fs.updateElement (el.parentElement))
-      {
-        clearCacheForEl (el.parentElement, computedStyleCache);
-        clearCacheForEl (el.parentElement, boundClientRectCache);
-      }
-      const parentStyle = getCachedComputedStyle (el.parentElement, computedStyleCache);
-      const parentEl = el.parentElement;
-      el.calcedPerc = true;
-      
-      switch(property)
-      {
-        case "height":
-        case "top":
-        case "bottom":
-          const padTop = parentStyle.paddingTop;
-          const padBtm = parentStyle.paddingBottom;
-          const padding = this.convertToPx (parseSingleVal (padTop), extractUnit(padTop, 'padding-top'), 'padding-top', parentEl, computedStyleCache, boundClientRectCache) + this.convertToPx (parseSingleVal (padBtm), extractUnit(padBtm, 'padding-bottom'), 'padding-bottom', parentEl, computedStyleCache, boundClientRectCache);
-          return (val / 100) * (getCachedBoundingClientRect (el.parentElement, boundClientRectCache).height - padding);
-      }
-      
-      const padLeft = parentStyle.paddingLeft
-      const padRight = parentStyle.paddingRight;
-      const padding = this.convertToPx (parseSingleVal (padLeft), extractUnit(padLeft, 'padding-left'), 'padding-left', parentEl, computedStyleCache, boundClientRectCache) + this.convertToPx (parseSingleVal (padRight), extractUnit(padRight, 'padding-right'), 'padding-right', parentEl, computedStyleCache, boundClientRectCache);
-  
-      return (val / 100) * (getCachedBoundingClientRect(el.parentElement, boundClientRectCache).width - padding);
-
-    case "vw":
-      return (val / 100) * window.vpWidth;
-    case "vh":
-      return (val / 100) * window.vpHeight;
-
-    case "vmin":
-      return (val / 100) * Math.min (window.vpWidth, window.vpHeight);
-    case "vmax":
-      return (val / 100) * Math.max (window.vpWidth, window.vpHeight);
-    
-    case 'cm':
-    case 'mm':
-    case 'in':
-    case 'pt':
-    case 'pc':
-      return val * unitToPx[unit];
-
-    case 'ch':
-    case 'ex':
-      return val * getCharUnit(el, unit, getCachedComputedStyle(el));
-
-    case "lh": 
-      const style = getCachedComputedStyle(el, computedStyleCache);
-      const fontSize = style.fontSize;
-      const fsVal = parseSingleVal(fontSize);
-      const fsUnit = extractUnit(fontSize, 'font-size');
-      const fontSizePx = this.convertToPx(fsVal, fsUnit, 'font-size', el, computedStyleCache, boundClientRectCache);
-
-      if (val === "normal") 
-        return fontSizePx * 1.2;
-
-      return fontSizePx * val;
-  }
-
-  return val;
-}
   getValues(breakpointIndex, currentWidth) {
-    
     if (breakpointIndex >= this.breakpoints.length - 1)
       breakpointIndex = this.breakpoints.length - 2;
 
@@ -1389,9 +1408,7 @@ class FluidProperty {
 
     let breakpointValues = this.valuesByBreakpoint[breakpointIndex];
 
-   
     if (!breakpointValues) return [];
-
 
     function calcProgress(breakpointMin, breakpointMax) {
       return Math.min(
@@ -1402,141 +1419,166 @@ class FluidProperty {
       );
     }
 
-
     const progress = calcProgress(
       this.breakpoints[breakpointIndex],
       this.breakpoints[breakpointValues.nextBpIndex]
     );
 
-
-      
-
- 
-      
     let values;
 
- 
-
-
-    if(progress >= 1)
-      values = breakpointValues.maxValues.map((maxVal, index) => this.computeVal(maxVal, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache))
-    else 
+    if (progress >= 1)
+      values = breakpointValues.maxValues.map((maxVal, index) =>
+        this.computeVal(
+          maxVal,
+          breakpointValues.maxUnits[index],
+          this.name,
+          this.el,
+          this.computedStyleCache,
+          this.boundClientRectCache
+        )
+      );
+    else
       values = breakpointValues.minValues.map((val, index) => {
-        
-        if (typeof val === 'string')
-          return val;
+        if (typeof val === "string") return val;
 
         const maxRaw = breakpointValues.maxValues[index];
 
-        const minVal = this.computeVal (val, breakpointValues.minUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
-        
-        if(typeof maxRaw === 'string')
-          return minVal;
-        
+        const minVal = this.computeVal(
+          val,
+          breakpointValues.minUnits[index],
+          this.name,
+          this.el,
+          this.computedStyleCache,
+          this.boundClientRectCache
+        );
 
-      if(Array.isArray (minVal) && minVal[0] === 'break')
-      {
+        if (typeof maxRaw === "string") return minVal;
+
+        if (Array.isArray(minVal) && minVal[0] === "break") {
           return minVal[1];
-      }
-        const maxVal = this.computeVal (maxRaw, breakpointValues.maxUnits[index], this.name, this.el, this.computedStyleCache, this.boundClientRectCache);
-        
-       
+        }
+        const maxVal = this.computeVal(
+          maxRaw,
+          breakpointValues.maxUnits[index],
+          this.name,
+          this.el,
+          this.computedStyleCache,
+          this.boundClientRectCache
+        );
+
         const rangeValue = maxVal - minVal;
 
-        
-        return minVal + (rangeValue * progress);
+        return minVal + rangeValue * progress;
       });
-   
-      
-    if (this.customTransition)
-    {
-      if (!this.customTransition.startValues || !values.every ((val, index) => val === this.customTransition.targetValues[index]))
-      {
-        this.customTransition.startValues = this.lastValues;
-        
-        if (!this.customTransition.startValues)
-        {
-          const prop = this.name.startsWith ('grid-auto') ? this.name.includes ('rows') ? 'grid-template-rows' : 'grid-template-columns' : this.name;
-         
-          let propVal = getCachedComputedStyle (this.el, this.computedStyleCache).getPropertyValue (prop);
 
-          this.customTransition.startValues = propVal.split(' ').map (strVal => this.convertToPx(parseSingleVal(strVal), extractUnit(strVal, this.name), this.name, this.el, this.boundClientRectCache));
+    if (this.customTransition) {
+      if (
+        !this.customTransition.startValues ||
+        !values.every(
+          (val, index) => val === this.customTransition.targetValues[index]
+        )
+      ) {
+        this.customTransition.startValues = this.lastValues;
+
+        if (!this.customTransition.startValues) {
+          const prop = this.name.startsWith("grid-auto")
+            ? this.name.includes("rows")
+              ? "grid-template-rows"
+              : "grid-template-columns"
+            : this.name;
+
+          let propVal = getCachedComputedStyle(
+            this.el,
+            this.computedStyleCache
+          ).getPropertyValue(prop);
+
+          this.customTransition.startValues = propVal
+            .split(" ")
+            .map((strVal) =>
+              this.convertToPx(
+                parseSingleVal(strVal),
+                extractUnit(strVal, this.name),
+                this.name,
+                this.el,
+                this.boundClientRectCache
+              )
+            );
         }
         this.customTransition.targetValues = values;
-        this.customTransition.startTime = performance.now ();
-        
-        if(this.customTransition.engine)
-          clearInterval (this.customTransition.engine);
-        
-        setTimeout (()=> {
-          this.customTransition.engine = setInterval(() => { 
+        this.customTransition.startTime = performance.now();
+
+        if (this.customTransition.engine)
+          clearInterval(this.customTransition.engine);
+
+        setTimeout(() => {
+          this.customTransition.engine = setInterval(() => {
             this.fs.calcCurrentWidth();
-            this.update (this.fs.currentBpIndex, this.fs.currentWidth)
+            this.update(this.fs.currentBpIndex, this.fs.currentWidth);
           }, 16);
-      }, this.customTransition.delay);
-      }
-      else 
-      {
-        const time = performance.now () - this.customTransition.startTime;
+        }, this.customTransition.delay);
+      } else {
+        const time = performance.now() - this.customTransition.startTime;
         let progress = time / this.customTransition.time;
-        progress = applyEasing (this.customTransition.easing, progress);
-        
-        if(progress >= 1) {
+        progress = applyEasing(this.customTransition.easing, progress);
+
+        if (progress >= 1) {
           progress = 1;
-          clearInterval (this.customTransition.engine);
+          clearInterval(this.customTransition.engine);
           this.customTransition.engine = null;
         }
-        
-        
-        values = values.map ((val, index) => {
+
+        values = values.map((val, index) => {
           const startValue = this.customTransition.startValues[index];
-          if(!isNumber(startValue))
-            return progress >= 1 ? val : startValue;
+          if (!isNumber(startValue)) return progress >= 1 ? val : startValue;
 
           const range = val - startValue;
-          const curr = startValue + (range * progress);
+          const curr = startValue + range * progress;
           return curr;
-        })
-        
+        });
       }
     }
-    
+
     this.lastValues = values;
-  
+
     values = values.map((val, index) => {
       return !isNumber(val) ? val : `${val}px`;
-  });
+    });
 
-  /*
+    /*
     if(!this.noMin)
      values = values.map((val) => {
       return `min(${val}, 100%)`;
     });*/
 
-   
     return values;
   }
 
-  static Parse(el, name, valuesByBreakpoint, breakpoints, autoTransition, computedStyleCache, clientBoundRectCache, fs) {
-    const instanceName = name.replace('-min', '');
-    if (autoTransition && !name.startsWith ('--grid')) {
+  static Parse(
+    el,
+    name,
+    valuesByBreakpoint,
+    breakpoints,
+    autoTransition,
+    computedStyleCache,
+    clientBoundRectCache,
+    fs
+  ) {
+    const instanceName = name.replace("-min", "");
+    if (autoTransition && !name.startsWith("--grid")) {
       if (!el.variables) el.variables = [];
 
       el.variables.push(name);
 
-      if(!el.transitions) el.transitions = new Set();
+      if (!el.transitions) el.transitions = new Set();
 
-      for(const vbbp of valuesByBreakpoint)
-      {
-        if(vbbp?.transition)
-        {
-          const arr = vbbp.transition.split (',').map (t => t.trim());
-          for(const t of arr)
-            el.transitions.add (t);
+      for (const vbbp of valuesByBreakpoint) {
+        if (vbbp?.transition) {
+          const arr = vbbp.transition.split(",").map((t) => t.trim());
+          for (const t of arr) el.transitions.add(t);
         }
       }
     }
- 
+
     if (valuesByBreakpoint.some((vbbp) => vbbp?.isCombo)) {
       return new FluidPropertyCombo(
         el,
@@ -1545,63 +1587,70 @@ class FluidProperty {
         breakpoints,
         computedStyleCache,
         clientBoundRectCache,
-        fs,
+        fs
       );
     } else {
-      return new FluidPropertySingle(el, name, valuesByBreakpoint, breakpoints, computedStyleCache, clientBoundRectCache, fs);
+      return new FluidPropertySingle(
+        el,
+        name,
+        valuesByBreakpoint,
+        breakpoints,
+        computedStyleCache,
+        clientBoundRectCache,
+        fs
+      );
     }
   }
 
   toString(breakpointIndex, currentWidth) {
-    return '';
+    return "";
   }
 
-  lastIsActive = null
+  lastIsActive = null;
 
   _isActive = null;
-  isActive () {
-    
-    if(this._isActive !== null)
-      return this._isActive;
+  isActive() {
+    if (this._isActive !== null) return this._isActive;
 
-    const isPseudoMatch = this.isPseudo ? this.el.matches (this.pseudoSel) : true;
+    const isPseudoMatch = this.isPseudo
+      ? this.el.matches(this.pseudoSel)
+      : true;
 
     this._isActive = this.active && isPseudoMatch;
-   
+
     return this._isActive;
   }
 
-  isSameWidth ()
-  {
-    return this.state.widthApplied && Math.abs (window.vpWidth - this.state.widthApplied) < 1;
+  isSameWidth() {
+    return (
+      this.state.widthApplied &&
+      Math.abs(window.vpWidth - this.state.widthApplied) < 1
+    );
   }
 
-  update(breakpointIndex, currentWidth) { 
+  update(breakpointIndex, currentWidth) {
     const state = this.state;
 
-    const isActive = this.isActive ();
+    const isActive = this.isActive();
     this._isActive = null;
-    
-    if (isActive !== this.lastIsActive)
-      state.dynamicChange = true;
-    
+
+    if (isActive !== this.lastIsActive) state.dynamicChange = true;
 
     this.lastIsActive = isActive;
 
-    if(!isActive)
-      return;
+    if (!isActive) return;
 
-    if (this.el.isHidden)
-      return;
+    if (this.el.isHidden) return;
 
-   
-    if (this.order < state.order)
-      return;
+    if (this.order < state.order) return;
 
-    if(this.isSameWidth() && !this.el.resized && !state.lastDynamicChange && state.fpApplied?.isActive())
-    {
-      if(state.fpApplied === this)
-      {
+    if (
+      this.isSameWidth() &&
+      !this.el.resized &&
+      !state.lastDynamicChange &&
+      state.fpApplied?.isActive()
+    ) {
+      if (state.fpApplied === this) {
         state.fp = state.fpApplied;
         state.value = state.valueApplied;
         state.order = state.orderApplied;
@@ -1610,33 +1659,24 @@ class FluidProperty {
     }
 
     const strValue = this.toString(breakpointIndex, currentWidth);
-    
-    if(!strValue)
-      return;
 
+    if (!strValue) return;
 
-  
     state.fp = this;
     state.order = this.order;
     if (autoApply) {
-
-      if (this.name === 'grid-auto' || this.name === 'grid-auto-fit')
-      {
-        state.value =`repeat(auto-fit, ${strValue})`
-      }
-      else if (this.name === 'grid-auto-fill')
-      {
-        state.value =`repeat(auto-fill, ${strValue})`
-      }
-      else if (this.name === 'grid-auto-rows' || this.name === 'grid-auto-fit-rows')
-      {
-        state.value =`repeat(auto-fit, ${strValue})`;
-      }
-        else if (this.name === 'grid-auto-fill')
-        {
-        state.value =`repeat(auto-fill, ${strValue})`;
-        }
-      else { 
+      if (this.name === "grid-auto" || this.name === "grid-auto-fit") {
+        state.value = `repeat(auto-fit, ${strValue})`;
+      } else if (this.name === "grid-auto-fill") {
+        state.value = `repeat(auto-fill, ${strValue})`;
+      } else if (
+        this.name === "grid-auto-rows" ||
+        this.name === "grid-auto-fit-rows"
+      ) {
+        state.value = `repeat(auto-fit, ${strValue})`;
+      } else if (this.name === "grid-auto-fill") {
+        state.value = `repeat(auto-fill, ${strValue})`;
+      } else {
         state.value = strValue;
       }
       return;
@@ -1653,30 +1693,27 @@ class FluidPropertySingle extends FluidProperty {
 
 class FluidPropertyCombo extends FluidProperty {
   toString(breakpointIndex, currentWidth) {
-    return super.getValues(breakpointIndex, currentWidth).join(' ');
+    return super.getValues(breakpointIndex, currentWidth).join(" ");
   }
 }
 
-function getStableWindowWidth ()
-{
+function getStableWindowWidth() {
   return visualViewport?.width ?? window.innerWidth;
 }
-function getStableWindowHeight ()
-{
+function getStableWindowHeight() {
   return visualViewport?.height ?? window.innerHeight;
 }
 function getElementClosestToLastTop(elements) {
-  if(elements.size <= 0)
-    return [null, lastTop];
+  if (elements.size <= 0) return [null, lastTop];
 
   let closestElement = null;
   let closestDistance = Infinity;
   let closestRect;
 
-  elements.forEach(el => {
+  elements.forEach((el) => {
     const rect = el.getBoundingClientRect();
-    
-    const distance = Math.abs (rect.top - lastTop);
+
+    const distance = Math.abs(rect.top - lastTop);
     if (distance < closestDistance) {
       closestDistance = distance;
       closestElement = el;
@@ -1687,18 +1724,15 @@ function getElementClosestToLastTop(elements) {
   return [closestElement, closestRect];
 }
 
-function getElementOneUpFromLastTop ()
-{
+function getElementOneUpFromLastTop() {
   let prevEl;
   if (topEl.previousElementSibling) {
     prevEl = topEl.previousElementSibling;
-  }
-  else 
-  {
+  } else {
     prevEl = topEl.parentElement;
   }
 
-  const rect = prevEl.getBoundingClientRect ();
+  const rect = prevEl.getBoundingClientRect();
 
   return [prevEl, rect];
 }
@@ -1706,45 +1740,47 @@ function getDiagonalDistance(x1, y1, x2, y2) {
   const dx = x2 - x1;
   const dy = y2 - y1;
   const verticalWeight = 3;
-  return dx * dx + verticalWeight * verticalWeight * dy * dy
+  return dx * dx + verticalWeight * verticalWeight * dy * dy;
 }
 function getElementClosestToTop(elements) {
-  if(elements.size < 0)
-    return [topEl, lastTop];
+  if (elements.size < 0) return [topEl, lastTop];
 
   let closestElement = topEl;
   let closestDistance = Infinity;
   let closestDy = Infinity;
   let closestDx = Infinity;
   let closestRect = lastTop;
-  
+
   const width = window.innerWidth;
   const height = window.innerHeight;
 
-  const fixation = scrollFix.point === 'center' ? [width * 0.5, height * 0.5] : [0, 0];
+  const fixation =
+    scrollFix.point === "center" ? [width * 0.5, height * 0.5] : [0, 0];
   const [fx, fy] = fixation;
   const dyThreshold = height * 0.05;
 
-  elements.forEach(el => {
+  elements.forEach((el) => {
     const rect = el.getBoundingClientRect();
 
-    if (rect.width === 0 && rect.height === 0)
-      return;
-    
+    if (rect.width === 0 && rect.height === 0) return;
+
     //if (rect.top < 0)
-      //return;
+    //return;
 
     const dy = Math.abs(rect.top - fy);
     const dx = Math.abs(rect.left - fx);
 
-    //const distance = getDiagonalDistance (rect.left, rect.top, fixation[0], fixation[1]); 
+    //const distance = getDiagonalDistance (rect.left, rect.top, fixation[0], fixation[1]);
     //let isCloser = distance < closestDistance;
 
     const isVerticallyCloser = dy < closestDy;
     const isWithinVerticalThreshold = Math.abs(dy - closestDy) <= dyThreshold;
     const isHorizontallyCloser = dx < closestDx;
-    
-    if (isVerticallyCloser || (isWithinVerticalThreshold && isHorizontallyCloser)) {
+
+    if (
+      isVerticallyCloser ||
+      (isWithinVerticalThreshold && isHorizontallyCloser)
+    ) {
       closestDx = dx;
       closestDy = dy;
       closestElement = el;
@@ -1754,52 +1790,40 @@ function getElementClosestToTop(elements) {
 
   return [closestElement, closestRect];
 }
-function constructGPUVersion (fluidProperty)
-{
-  switch (fluidProperty.name)
-  {
+function constructGPUVersion(fluidProperty) {
+  switch (fluidProperty.name) {
     case "font-size":
-    let maxFontSize;
-    let maxFontUnit;
-    for(let i = fluidProperty.valuesByBreakpoint.length - 1; i >= 0; i--)
-    {
-      const vbbp = fluidProperty.valuesByBreakpoint[i];
-      if(vbbp)
-      {
-        maxFontSize = vbbp.maxValues[0]; 
-        maxFontUnit = vbbp.maxUnits[0];
+      let maxFontSize;
+      let maxFontUnit;
+      for (let i = fluidProperty.valuesByBreakpoint.length - 1; i >= 0; i--) {
+        const vbbp = fluidProperty.valuesByBreakpoint[i];
+        if (vbbp) {
+          maxFontSize = vbbp.maxValues[0];
+          maxFontUnit = vbbp.maxUnits[0];
+        }
       }
-    }
-    break;
+      break;
   }
 }
 
+function getCachedComputedStyle(el, cache) {
+  if (!cache.has(el)) cache.set(el, getComputedStyle(el));
 
-
-function getCachedComputedStyle (el, cache) 
-{
-  if(!cache.has (el))
-    cache.set (el, getComputedStyle (el));
-  
-  return cache.get (el);
+  return cache.get(el);
 }
-function clearCacheForEl (el, cache)
-{
-  cache.delete (el);
+function clearCacheForEl(el, cache) {
+  cache.delete(el);
 }
 
-function getCachedBoundingClientRect (el, cache)
-{
-  if(!cache.has (el))
-    cache.set (el, el.getBoundingClientRect());
-  
-  return cache.get (el);
+function getCachedBoundingClientRect(el, cache) {
+  if (!cache.has(el)) cache.set(el, el.getBoundingClientRect());
+
+  return cache.get(el);
 }
 
 function isInViewport(el, cache, margin = 0) {
-  const rect = getCachedBoundingClientRect (el, cache);
-  if (rect.width === 0 && rect.height === 0)
-    return false;
+  const rect = getCachedBoundingClientRect(el, cache);
+  if (rect.width === 0 && rect.height === 0) return false;
   const vwWidth = window.innerWidth;
   const vwHeight = window.innerHeight;
 
@@ -1807,49 +1831,48 @@ function isInViewport(el, cache, margin = 0) {
   const marginX = vwWidth * marginPercent;
   const marginY = vwHeight * marginPercent;
 
-  
   return (
-    rect.bottom    >= -marginY &&
-    rect.right   >= -marginX &&
+    rect.bottom >= -marginY &&
+    rect.right >= -marginX &&
     rect.top <= vwHeight + marginY &&
-    rect.left  <= vwWidth + marginX
+    rect.left <= vwWidth + marginX
   );
 }
 
-
-
-function getCharUnit(el, unit = 'ch', style) {
-  const test = document.createElement('span');
-  test.style.visibility = 'hidden';
-  test.style.position = 'absolute';
+function getCharUnit(el, unit = "ch", style) {
+  const test = document.createElement("span");
+  test.style.visibility = "hidden";
+  test.style.position = "absolute";
   test.style.font = style.font;
-  test.textContent = unit === 'ch' ? '0' : 'x';
+  test.textContent = unit === "ch" ? "0" : "x";
   document.body.appendChild(test);
   const rect = test.getBoundingClientRect();
   document.body.removeChild(test);
-  return unit === 'ch' ? rect.width : rect.height;
+  return unit === "ch" ? rect.width : rect.height;
 }
 
-function isArithemtic (v)
-{
-  if(typeof v !== 'string')
-    return false;
+function isArithemtic(v) {
+  if (typeof v !== "string") return false;
 
-  return v === '+' || v === '-' || v === '/' || v === '*';
+  return v === "+" || v === "-" || v === "/" || v === "*";
 }
 function isNumber(value) {
-  return typeof value === 'number' && isFinite(value);
+  return typeof value === "number" && isFinite(value);
 }
 
 function evaluateCalc(expression) {
-
   if (!/^[\d+\-*/().\s]+$/.test(expression)) {
     throw new Error("Unsafe expression");
   }
 
   return new Function(`return (${expression})`)();
 }
-function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0) {
+function computeAutoFitGrid(
+  containerWidth,
+  minTrackSize,
+  maxTrackSize,
+  gap = 0
+) {
   const totalGap = (n) => (n - 1) * gap;
 
   // Try to fit as many tracks of `minTrackSize` as possible
@@ -1866,30 +1889,24 @@ function computeAutoFitGrid(containerWidth, minTrackSize, maxTrackSize, gap = 0)
 
   // Calculate available space per track
   const spaceForTracks = containerWidth - totalGap(numTracks);
-  const trackSize = Math.min(maxTrackSize, Math.max(minTrackSize, spaceForTracks / numTracks));
+  const trackSize = Math.min(
+    maxTrackSize,
+    Math.max(minTrackSize, spaceForTracks / numTracks)
+  );
 
- return trackSize;
+  return trackSize;
 }
 
+function applyEasing(easing, t) {
+  if (easing === "ease")
+    return t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1;
 
+  if (easing === "ease-in") return t * t;
 
-function applyEasing (easing, t)
-{
-  if (easing === 'ease')
-    return t < 0.5
-    ? (4 * t * t * t)
-    : ((t - 1) * (2 * t - 2) * (2 * t - 2) + 1);
+  if (easing === "ease-out") return t * (2 - t);
 
-  if (easing === 'ease-in')
-    return t * t;
-
-  if(easing === 'ease-out')
-    return t * (2 - t);
-
-  if (easing === 'ease-in-out')
-    return t < 0.5
-    ? 2 * t * t
-    : -1 + (4 - 2 * t) * t;
+  if (easing === "ease-in-out")
+    return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
   return t;
 }
@@ -1903,15 +1920,11 @@ let stylesParsed = false;
 
 let prevValues = {};
 
-async function parseStyles (json)
-{
-  if (usingJSON)
-    return;
-  
-  if (!stylesParsed && (!json || jsonLoaded !==  json)) {
+async function parseStyles(json) {
+  if (usingJSON) return;
 
-   
-    await waitForPageLoad ();
+  if (!stylesParsed && (!json || jsonLoaded !== json)) {
+    await waitForPageLoad();
     // run once on load
     let sheets = checkUsage
       ? document.styleSheets.filter((sheet) => {
@@ -1919,11 +1932,11 @@ async function parseStyles (json)
             const ownerNode = sheet.ownerNode;
             if (!ownerNode) return false;
 
-            if (ownerNode.tagName === 'STYLE') {
+            if (ownerNode.tagName === "STYLE") {
               const text = ownerNode.textContent.trimStart();
-              return text.startsWith('/*enable-fluid');
-            } else if (ownerNode.tagName === 'LINK') {
-              return 'fluid' in node.dataset;
+              return text.startsWith("/*enable-fluid");
+            } else if (ownerNode.tagName === "LINK") {
+              return "fluid" in node.dataset;
             }
           } catch {
             return false;
@@ -1931,25 +1944,23 @@ async function parseStyles (json)
         })
       : document.styleSheets;
 
-      sheets = Array.from (sheets).filter (sheet => {
-        try {
-          sheet.cssRules;
-          return true;
-        }
-        catch(e) {
-          
-          return false;
-        }
-      })       
-      parseRules(sheets.map (sheet => Array.from (sheet.cssRules)).flat(), 0);
+    sheets = Array.from(sheets).filter((sheet) => {
+      try {
+        sheet.cssRules;
+        return true;
+      } catch (e) {
+        return false;
+      }
+    });
+    parseRules(sheets.map((sheet) => Array.from(sheet.cssRules)).flat(), 0);
     stylesParsed = true;
   }
 }
 
 function parseNextValues(rules) {
   for (const rule of rules) {
-    const next = rule.style.getPropertyValue('--fluid-next');
-    const nextBp = next ? Number(next.replace('px', '')) : null;
+    const next = rule.style.getPropertyValue("--fluid-next");
+    const nextBp = next ? Number(next.replace("px", "")) : null;
     rule.nextBp = nextBp;
     if (nextBp && autoBreakpoints) breakpoints.push(nextBp);
   }
@@ -1958,11 +1969,11 @@ function parseNextValues(rules) {
 function findCSSRuleConstructor(rules) {
   for (const rule of rules) {
     const proto = Object.getPrototypeOf(Object.getPrototypeOf(rule));
-    if (proto && proto.constructor && proto.constructor.name === 'CSSRule') {
+    if (proto && proto.constructor && proto.constructor.name === "CSSRule") {
       return proto.constructor;
     }
     // Recursively search inside group rules like @media
-    if ('cssRules' in rule) {
+    if ("cssRules" in rule) {
       const found = findCSSRuleConstructor(rule.cssRules);
       if (found) return found;
     }
@@ -1970,43 +1981,32 @@ function findCSSRuleConstructor(rules) {
   return null;
 }
 
-const calcFuncs = ['min', 'max', 'clamp', 'minmax', 'calc'];
+const calcFuncs = ["min", "max", "clamp", "minmax", "calc"];
 
-function tryParseCalcs (val)
-{
+function tryParseCalcs(val) {
+  for (const calcFunc of calcFuncs) {
+    const result = parseCalc(val, calcFunc);
 
-  for(const calcFunc of calcFuncs)
-    {
-      const result = parseCalc (val, calcFunc);
-    
-      if(result[0])
-      {
-        return result;
-      }
+    if (result[0]) {
+      return result;
     }
+  }
 
-    return val;
-
+  return val;
 }
 
 function parseCalc(value, type) {
-
-
-  const prefix = `${type}(`;  
-  if (!value.startsWith(prefix) || !value.endsWith(')')) return [null, value];
+  const prefix = `${type}(`;
+  if (!value.startsWith(prefix) || !value.endsWith(")")) return [null, value];
   //if (type === 'calc' && (value.includes(' ') && !isArithemtic (value))) return [null, value];
 
-  const inner = value.slice(prefix.length, -1).trim()
+  const inner = value.slice(prefix.length, -1).trim();
 
-
-  
   //if(type === 'var')
-    //return inner;
+  //return inner;
 
   if (type === "calc") {
-    
-    if (!inner.includes (' '))
-      return ['break', [inner]];
+    if (!inner.includes(" ")) return ["break", [inner]];
     // Split into tokens: operands and operators
     const tokens = [];
     let depth = 0;
@@ -2030,110 +2030,115 @@ function parseCalc(value, type) {
       }
     }
 
-
     if (current.trim()) tokens.push(tryParseCalcs(current.trim()));
-    
-    return tokens.length === 1 ? ['break', tokens] : [type, tokens];
+
+    return tokens.length === 1 ? ["break", tokens] : [type, tokens];
   }
 
   const args = [];
   let depth = 0;
-  let current = '';
+  let current = "";
 
   for (let i = 0; i < inner.length; i++) {
     const char = inner[i];
 
-    if (char === '(') {
+    if (char === "(") {
       depth++;
       current += char;
-    } else if (char === ')') {
+    } else if (char === ")") {
       depth--;
       current += char;
-    } else if (char === ',' && depth === 0) {
-      args.push(tryParseCalcs (current.trim()));
-      current = '';
+    } else if (char === "," && depth === 0) {
+      args.push(tryParseCalcs(current.trim()));
+      current = "";
     } else {
       current += char;
     }
   }
 
-  if (current) args.push(tryParseCalcs (current.trim()));
-  
-  return args.length === 1 ? ['break', args] : [type, args];
+  if (current) args.push(tryParseCalcs(current.trim()));
+
+  return args.length === 1 ? ["break", args] : [type, args];
 }
 
-
 function parseAllCalcs(value) {
- 
   const parts = [];
-  let current = '';
+  let current = "";
   let depth = 0;
 
   for (let i = 0; i < value.length; i++) {
     const char = value[i];
 
-    if (char === '(') {
+    if (char === "(") {
       depth++;
-    } else if (char === ')') {
+    } else if (char === ")") {
       depth--;
     }
 
-    if (char === ' ' && depth === 0) {
-     
+    if (char === " " && depth === 0) {
       if (current.trim()) parts.push(tryParseCalcs(current.trim()));
-      current = '';
+      current = "";
     } else {
       current += char;
     }
   }
 
-  if (current.trim()) parts.push(tryParseCalcs(current.trim()));   
+  if (current.trim()) parts.push(tryParseCalcs(current.trim()));
 
-  
-  if (parts.includes ('top') || parts.includes ('left') || parts.includes ('right') || parts.includes ('bottom') || parts.includes ('center'))
-  {
+  if (
+    parts.includes("top") ||
+    parts.includes("left") ||
+    parts.includes("right") ||
+    parts.includes("bottom") ||
+    parts.includes("center")
+  ) {
     const newParts = [];
-    for(let [index, part] of parts.entries ())
-    {
-      if(part === 'left' || part === 'top' || part === 'bottom' || part === 'right' || part === 'center')
-      {
+    for (let [index, part] of parts.entries()) {
+      if (
+        part === "left" ||
+        part === "top" ||
+        part === "bottom" ||
+        part === "right" ||
+        part === "center"
+      ) {
         const next = parts[index + 1];
-        const nextIsNumber = next !== 'left' && next !== 'right' && next !== 'top' && next !== 'bottom' && next !== 'center';
-        if (part === 'center')
-        {
-          if (index === 0)
-            part = 'h-center';
-          else 
-            part = 'v-center';
+        const nextIsNumber =
+          next !== "left" &&
+          next !== "right" &&
+          next !== "top" &&
+          next !== "bottom" &&
+          next !== "center";
+        if (part === "center") {
+          if (index === 0) part = "h-center";
+          else part = "v-center";
         }
-        newParts.push (nextIsNumber ? [part, [next]] : [part, []]);
+        newParts.push(nextIsNumber ? [part, [next]] : [part, []]);
       }
     }
 
     return newParts;
-
   }
   return parts;
 }
 
 function splitByOuterSpaces(input) {
   const result = [];
-  let buffer = '';
+  let buffer = "";
   let depth = 0;
 
   for (let i = 0; i < input.length; i++) {
     const char = input[i];
 
-    if (char === '(') {
+    if (char === "(") {
       depth++;
       buffer += char;
-    } else if (char === ')') {
+    } else if (char === ")") {
       depth--;
       buffer += char;
-    } else if (char === ' ' && depth === 0) {
+    } else if (char === " " && depth === 0) {
       if (buffer) {
         result.push(buffer);
-        buffer = '';
+        buffer = "";
       }
     } else {
       buffer += char;
@@ -2147,220 +2152,276 @@ function splitByOuterSpaces(input) {
   return result;
 }
 const clockSymmetry = [
-  'margin',
-  'padding',
-  'border-width',
-  'border-style',
-  'border-color',
-  'inset',
-  'scroll-padding',
-  'scroll-margin',
-]
-const clockMap = new Map ([
-  [1, {
-    'top': 0,
-    'left': 0,
-    'right': 0,
-    'bottom': 0
-  }],
-  [2, {
-    'top': 0,
-    'bottom': 0,
-    'left': 1,
-    'right': 1
-  }],
-  [3,{
-    'top': 0,
-    'left': 1,
-    'right': 1,
-    'bottom': 2
-  }],
-  [4, {
-    'top': 0,
-    'right': 1,
-    'bottom': 2,
-    'left': 3
-  }]
-]
-)
+  "margin",
+  "padding",
+  "border-width",
+  "border-style",
+  "border-color",
+  "inset",
+  "scroll-padding",
+  "scroll-margin",
+];
+const clockMap = new Map([
+  [
+    1,
+    {
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+  ],
+  [
+    2,
+    {
+      top: 0,
+      bottom: 0,
+      left: 1,
+      right: 1,
+    },
+  ],
+  [
+    3,
+    {
+      top: 0,
+      left: 1,
+      right: 1,
+      bottom: 2,
+    },
+  ],
+  [
+    4,
+    {
+      top: 0,
+      right: 1,
+      bottom: 2,
+      left: 3,
+    },
+  ],
+]);
 
 const borderMap = new Map([
-  [1, {
-    'top-left': 0,
-    'top-right': 0,
-    'bottom-right': 0,
-    'bottom-left': 0
-  }],
-  [2, {
-    'top-left': 0,
-    'bottom-right':0,
-    'top-right':1,
-    'bottom-left':1
-  }],
-  [3, {
-    'top-left': 0,
-    'top-right':1,
-    'bottom-left':1,
-    'bottom-right':2
-  }],
-  [4, {
-    'top-left': 0,
-    'top-right':1,
-    'bottom-right':2,
-    'bottom-left':3 
-  }]
-])
+  [
+    1,
+    {
+      "top-left": 0,
+      "top-right": 0,
+      "bottom-right": 0,
+      "bottom-left": 0,
+    },
+  ],
+  [
+    2,
+    {
+      "top-left": 0,
+      "bottom-right": 0,
+      "top-right": 1,
+      "bottom-left": 1,
+    },
+  ],
+  [
+    3,
+    {
+      "top-left": 0,
+      "top-right": 1,
+      "bottom-left": 1,
+      "bottom-right": 2,
+    },
+  ],
+  [
+    4,
+    {
+      "top-left": 0,
+      "top-right": 1,
+      "bottom-right": 2,
+      "bottom-left": 3,
+    },
+  ],
+]);
 
-const flexMap = new Map ([
-  [1, {
-    'basis': 0
-  }],
-  [3, {
-    'basis': 2
-  }]
-])
+const flexMap = new Map([
+  [
+    1,
+    {
+      basis: 0,
+    },
+  ],
+  [
+    3,
+    {
+      basis: 2,
+    },
+  ],
+]);
 
 const backgroundMap = new Map([
-  [1, {
-    'x': 0,
-    'y': 0
-  }], 
-  [2, {
-    'x': 0,
-    'y': 1
-  }]
-])
-
+  [
+    1,
+    {
+      x: 0,
+      y: 0,
+    },
+  ],
+  [
+    2,
+    {
+      x: 0,
+      y: 1,
+    },
+  ],
+]);
 
 const explicitValues = {
-  'padding-left': [clockMap, 'padding', 'left'],
-  'padding-right': [ clockMap, 'padding', 'right'],
-  'padding-bottom': [clockMap, 'padding', 'bottom'],
-  'padding-top': [clockMap, 'padding', 'top'],
+  "padding-left": [clockMap, "padding", "left"],
+  "padding-right": [clockMap, "padding", "right"],
+  "padding-bottom": [clockMap, "padding", "bottom"],
+  "padding-top": [clockMap, "padding", "top"],
 
-  'margin-left': [clockMap, 'margin', 'left'],
-  'margin-right': [ clockMap, 'margin', 'right'],
-  'margin-bottom': [ clockMap, 'margin', 'bottom'],
-  'margin-top': [clockMap, 'margin', 'top'],
+  "margin-left": [clockMap, "margin", "left"],
+  "margin-right": [clockMap, "margin", "right"],
+  "margin-bottom": [clockMap, "margin", "bottom"],
+  "margin-top": [clockMap, "margin", "top"],
 
-  'border-top-width': [clockMap, 'border-width', 'top'],
-  'border-right-width': [clockMap, 'border-width', 'right'],
-  'border-bottom-width': [clockMap, 'border-width', 'bottom'],
-  'border-left-width': [clockMap, 'border-width', 'left'],
+  "border-top-width": [clockMap, "border-width", "top"],
+  "border-right-width": [clockMap, "border-width", "right"],
+  "border-bottom-width": [clockMap, "border-width", "bottom"],
+  "border-left-width": [clockMap, "border-width", "left"],
 
-  'border-top-style': [clockMap, 'border-style', 'top'],
-  'border-right-style': [clockMap, 'border-style', 'right'],
-  'border-bottom-style': [clockMap, 'border-style',  'bottom'],
-  'border-left-style': [clockMap, 'border-style', 'left'],
+  "border-top-style": [clockMap, "border-style", "top"],
+  "border-right-style": [clockMap, "border-style", "right"],
+  "border-bottom-style": [clockMap, "border-style", "bottom"],
+  "border-left-style": [clockMap, "border-style", "left"],
 
-  'border-top-color':[clockMap, 'border-color', 'top'],
-  'border-right-color':[clockMap, 'border-color', 'right'],
-  'border-bottom-color': [clockMap, 'border-color', 'bottom'],
-  'border-left-color': [clockMap, 'border-color',  'left'],
+  "border-top-color": [clockMap, "border-color", "top"],
+  "border-right-color": [clockMap, "border-color", "right"],
+  "border-bottom-color": [clockMap, "border-color", "bottom"],
+  "border-left-color": [clockMap, "border-color", "left"],
 
-  'top': [clockMap, 'inset', 'top'],
-  'right':[clockMap, 'inset', 'right'],
-  'bottom': [clockMap, 'inset', 'bottom'],
-  'left': [clockMap, 'inset', 'left'],
+  top: [clockMap, "inset", "top"],
+  right: [clockMap, "inset", "right"],
+  bottom: [clockMap, "inset", "bottom"],
+  left: [clockMap, "inset", "left"],
 
-  'scroll-padding-top': [clockMap, 'scroll-padding', 'top'],
-  'scroll-padding-right': [clockMap, 'scroll-padding', 'right'],
-  'scroll-padding-bottom': [clockMap, 'scroll-padding', 'bottom'],
-  'scroll-padding-left': [clockMap, 'scroll-padding', 'left'],
+  "scroll-padding-top": [clockMap, "scroll-padding", "top"],
+  "scroll-padding-right": [clockMap, "scroll-padding", "right"],
+  "scroll-padding-bottom": [clockMap, "scroll-padding", "bottom"],
+  "scroll-padding-left": [clockMap, "scroll-padding", "left"],
 
-  'scroll-margin-top': [clockMap, 'scroll-margin', 'top'],
-  'scroll-margin-right': [clockMap, 'scroll-margin', 'right'],
-  'scroll-margin-bottom': [clockMap, 'scroll-margin', 'bottom'],
-  'scroll-margin-left': [clockMap, 'scroll-margin', 'left'],
+  "scroll-margin-top": [clockMap, "scroll-margin", "top"],
+  "scroll-margin-right": [clockMap, "scroll-margin", "right"],
+  "scroll-margin-bottom": [clockMap, "scroll-margin", "bottom"],
+  "scroll-margin-left": [clockMap, "scroll-margin", "left"],
 
-  'border-top-left-radius': [borderMap, 'border-radius', 'top-left'],
-  'border-top-right-radius': [borderMap, 'border-radius', 'top-right'],
-  'border-bottom-right-radius': [borderMap, 'border-radius', 'bottom-right'],
-  'border-bottom-left-radius': [borderMap, 'border-radius', 'bottom-left'],
+  "border-top-left-radius": [borderMap, "border-radius", "top-left"],
+  "border-top-right-radius": [borderMap, "border-radius", "top-right"],
+  "border-bottom-right-radius": [borderMap, "border-radius", "bottom-right"],
+  "border-bottom-left-radius": [borderMap, "border-radius", "bottom-left"],
 
-  'flex-basis': [flexMap, 'flex', 'basis'],
+  "flex-basis": [flexMap, "flex", "basis"],
 
-  'background-position-x': [backgroundMap, 'background-position', 'x'],
-  'background-position-y': [backgroundMap, 'background-position', 'y']
+  "background-position-x": [backgroundMap, "background-position", "x"],
+  "background-position-y": [backgroundMap, "background-position", "y"],
+};
+
+const shorthandValues = {
+  padding: [
+    clockMap,
+    {
+      "padding-left": "left",
+      "padding-right": "right",
+      "padding-top": "top",
+      "padding-bottom": "bottom",
+    },
+  ],
+  margin: [
+    clockMap,
+    {
+      "margin-left": "left",
+      "margin-right": "right",
+      "margin-top": "top",
+      "margin-bottom": "bottom",
+    },
+  ],
+  "border-width": [
+    clockMap,
+    {
+      "border-left-width": "left",
+      "border-right-width": "right",
+      "border-top-width": "top",
+      "border-bottom-width": "bottom",
+    },
+  ],
+  "border-style": [
+    clockMap,
+    {
+      "border-left-style": "left",
+      "border-right-style": "right",
+      "border-top-style": "top",
+      "border-bottom-style": "bottom",
+    },
+  ],
+  "border-color": [
+    clockMap,
+    {
+      "border-left-color": "left",
+      "border-right-color": "right",
+      "border-top-color": "top",
+      "border-bottom-color": "bottom",
+    },
+  ],
+  inset: [
+    clockMap,
+    {
+      left: "left",
+      right: "right",
+      top: "top",
+      bottom: "bottom",
+    },
+  ],
+  "scroll-padding": [
+    clockMap,
+    {
+      "scroll-padding-left": "left",
+      "scroll-padding-right": "right",
+      "scroll-padding-top": "top",
+      "scroll-padding-bottom": "bottom",
+    },
+  ],
+  "scroll-margin": [
+    clockMap,
+    {
+      "scroll-margin-left": "left",
+      "scroll-margin-right": "right",
+      "scroll-margin-top": "top",
+      "scroll-margin-bottom": "bottom",
+    },
+  ],
+  "border-radius": [
+    borderMap,
+    {
+      "border-top-left-radius": "top-left",
+      "border-top-right-radius": "top-right",
+      "border-bottom-right-radius": "bottom-right",
+      "border-bottom-left-radius": "bottom-left",
+    },
+  ],
+  flex: [flexMap, { "flex-basis": "basis" }],
+  "background-position": [
+    backgroundMap,
+    { "background-position-x": "x", "background-position-y": "y" },
+  ],
+};
+
+function equalize(vals1, vals2, map) {
+  if (vals2.length > vals1.length) return [stretch(vals1, vals2, map), vals2];
+  else return [vals1, stretch(vals2, vals1, map)];
 }
 
-const shorthandValues = 
-{
-  'padding': [clockMap, {
-    'padding-left': 'left',
-    'padding-right': 'right',
-    'padding-top': 'top',
-    'padding-bottom': 'bottom'
-  }],
-  'margin': [clockMap, {
-    'margin-left': 'left',
-    'margin-right': 'right',
-    'margin-top': 'top',
-    'margin-bottom': 'bottom'
-  }],
-  'border-width': [clockMap, {
-    'border-left-width': 'left',
-    'border-right-width': 'right',
-    'border-top-width': 'top',
-    'border-bottom-width': 'bottom'
-  }],
-  'border-style': [clockMap, {
-    'border-left-style': 'left',
-    'border-right-style': 'right',
-    'border-top-style': 'top',
-    'border-bottom-style': 'bottom'
-  }],
-  'border-color': [clockMap, {
-    'border-left-color': 'left',
-    'border-right-color': 'right',
-    'border-top-color': 'top',
-    'border-bottom-color': 'bottom'
-  }],
-  'inset': [clockMap, {
-    'left': 'left',
-    'right': 'right',
-    'top': 'top',
-    'bottom': 'bottom'
-  }],
-  'scroll-padding': [clockMap, {
-    'scroll-padding-left': 'left',
-    'scroll-padding-right': 'right',
-    'scroll-padding-top': 'top',
-    'scroll-padding-bottom': 'bottom'
-  }],
-  'scroll-margin': [clockMap, {
-    'scroll-margin-left': 'left',
-    'scroll-margin-right': 'right',
-    'scroll-margin-top': 'top',
-    'scroll-margin-bottom': 'bottom'
-  }],
-  'border-radius': [borderMap, {
-    'border-top-left-radius': 'top-left',
-    'border-top-right-radius': 'top-right',
-    'border-bottom-right-radius': 'bottom-right',
-    'border-bottom-left-radius': 'bottom-left'
-  }],
-  'flex': [flexMap, {'flex-basis': 'basis'}],
-  'background-position': [backgroundMap, { 'background-position-x': 'x', 'background-position-y': 'y'}]
-}
-
-
-
-function equalize (vals1, vals2, map)
-{
-  if(vals2.length > vals1.length)
-    return [stretch (vals1, vals2, map), vals2];
-  else 
-    return [vals1, stretch (vals2, vals1, map)]
-}
-
-function stretch (smaller, larger, map)
-{
+function stretch(smaller, larger, map) {
   const stretched = new Array(larger.length);
 
-  const smallMap = map.get (smaller.length);
-  for(const [pos, index] of Object.entries (map.get (larger.length)))
-  {
+  const smallMap = map.get(smaller.length);
+  for (const [pos, index] of Object.entries(map.get(larger.length))) {
     const smallIndex = smallMap[pos];
 
     stretched[index] = smaller[smallIndex];
@@ -2369,10 +2430,7 @@ function stretch (smaller, larger, map)
   return stretched;
 }
 
-
-
 function parseGridTemplateColumns(value) {
-  
   const match = value.match(/^repeat\(\s*(auto-fit|auto-fill)\s*,\s*(.+)\)$/);
   if (match) {
     return match[2].trim();
@@ -2381,16 +2439,16 @@ function parseGridTemplateColumns(value) {
 }
 
 function parseRepeat(value) {
-  if (!value.includes('repeat')) return value;
+  if (!value.includes("repeat")) return value;
 
-  const start = value.indexOf('repeat(');
+  const start = value.indexOf("repeat(");
   if (start === -1) return null;
 
   // Extract the inside of repeat(...)
   const inside = value.slice(start + 7, -1); // remove "repeat(" and final ")"
   let i = 0;
-  let countStr = '';
-  
+  let countStr = "";
+
   // Parse count (e.g., "3")
   while (i < inside.length && /\d/.test(inside[i])) {
     countStr += inside[i];
@@ -2402,34 +2460,32 @@ function parseRepeat(value) {
   const count = parseInt(countStr, 10);
 
   // Skip comma and any whitespace
-  while (i < inside.length && (inside[i] === ',' || /\s/.test(inside[i]))) i++;
+  while (i < inside.length && (inside[i] === "," || /\s/.test(inside[i]))) i++;
 
   // Parse the unit (handle nested parentheses)
-  let unit = '';
+  let unit = "";
   let parenDepth = 0;
 
   while (i < inside.length) {
     const char = inside[i];
-    if (char === '(') parenDepth++;
-    if (char === ')') parenDepth--;
+    if (char === "(") parenDepth++;
+    if (char === ")") parenDepth--;
     unit += char;
     i++;
   }
 
   unit = unit.trim();
-  return Array(count).fill(unit).join(' ');
+  return Array(count).fill(unit).join(" ");
 }
 
-function isStrVal (val)
-{
- return (!/^[\d.]/.test (val));
+function isStrVal(val) {
+  return !/^[\d.]/.test(val);
 }
-function parseSingleValFull (val)
-{
-  if(Array.isArray (val))
-    return [val[0], val[1].map(v => parseSingleValFull (v))];
+function parseSingleValFull(val) {
+  if (Array.isArray(val))
+    return [val[0], val[1].map((v) => parseSingleValFull(v))];
 
-  return parseSingleVal (val);
+  return parseSingleVal(val);
 }
 function parseSingleVal(val) {
   // if (isStrVal(val)) return val;
@@ -2442,114 +2498,108 @@ function parseSingleVal(val) {
 
 function extractUnit(input, property) {
   const match = input.match(/[a-z%]+$/i);
-  return match ? match[0] : property === 'line-height' ? 'lh' : 'px';
+  return match ? match[0] : property === "line-height" ? "lh" : "px";
 }
 
-function parseUnit (val, property)
-{
-  if (Array.isArray (val))
-    return ['', val[1].map(v => parseUnit (v))]
+function parseUnit(val, property) {
+  if (Array.isArray(val)) return ["", val[1].map((v) => parseUnit(v))];
 
-  return val.startsWith('0.') || !val.startsWith('0') ? extractUnit (val, property) : 'px';
+  return val.startsWith("0.") || !val.startsWith("0")
+    ? extractUnit(val, property)
+    : "px";
 }
 
-function isHorizontalBgPos (str)
-{
-  return str === 'left' || str === 'right';
+function isHorizontalBgPos(str) {
+  return str === "left" || str === "right";
 }
 
-function isVerticalBgPos (str)
-{
-  return str === 'top' || str === 'bottom';
+function isVerticalBgPos(str) {
+  return str === "top" || str === "bottom";
 }
 
-function extractExplicitBgValueIndex (valSpl, posId)
-{
-  const rootFunc = posId === 'x' ? isHorizontalBgPos : isVerticalBgPos;
-  const otherFunc = posId === 'x' ? isVerticalBgPos : isHorizontalBgPos;
+function extractExplicitBgValueIndex(valSpl, posId) {
+  const rootFunc = posId === "x" ? isHorizontalBgPos : isVerticalBgPos;
+  const otherFunc = posId === "x" ? isVerticalBgPos : isHorizontalBgPos;
 
-  let index = valSpl.findIndex (v => rootFunc (v)); 
+  let index = valSpl.findIndex((v) => rootFunc(v));
 
-  if (index !== -1)
-    return index;
+  if (index !== -1) return index;
 
-  const otherIndex = valSpl.findIndex (v => otherFunc (v));
+  const otherIndex = valSpl.findIndex((v) => otherFunc(v));
 
-  if (otherIndex === 0)
-    index = 2;
-  else if (otherIndex === 2)
-    index = 0;
-  else 
-  {
-    if (posId === 'x')
-      index = 0;
-    else if (posId === 'y')
-      index = 2;
+  if (otherIndex === 0) index = 2;
+  else if (otherIndex === 2) index = 0;
+  else {
+    if (posId === "x") index = 0;
+    else if (posId === "y") index = 2;
   }
 
   return index;
 }
 
-function extractExplicitValue (rule, explicitData)
-{
-  if(explicitData)
-  {
+function extractExplicitValue(rule, explicitData) {
+  if (explicitData) {
     const [symmetryMap, shorthand, posId] = explicitData;
 
-    const shorthandVal = rule.style.getPropertyValue (shorthand);
-    if (shorthandVal)
-    {
-      const shorthandValSpl = splitByOuterSpaces (shorthandVal);
+    const shorthandVal = rule.style.getPropertyValue(shorthand);
+    if (shorthandVal) {
+      const shorthandValSpl = splitByOuterSpaces(shorthandVal);
 
       let index = null;
 
-      if (shorthand === 'background-position' && shorthandValSpl.length > 2)
-            index = extractExplicitBgValueIndex (shorthandValSpl, posId);
-      else 
-            index = symmetryMap.get(shorthandValSpl.length)[posId];
-      
+      if (shorthand === "background-position" && shorthandValSpl.length > 2)
+        index = extractExplicitBgValueIndex(shorthandValSpl, posId);
+      else index = symmetryMap.get(shorthandValSpl.length)[posId];
+
       const val = shorthandValSpl[index];
 
-      if(shorthand === 'background-position' && (val === 'top' || val === 'left' || val === 'right' || val === 'bottom' || val === 'center'))
-      {
+      if (
+        shorthand === "background-position" &&
+        (val === "top" ||
+          val === "left" ||
+          val === "right" ||
+          val === "bottom" ||
+          val === "center")
+      ) {
         const next = shorthandValSpl[index + 1];
 
-        if(next && next !== 'top' && next !== 'bottom' && next !== 'left' && next !== 'right' && next !== 'center')
-        return `${val} ${next}`;
+        if (
+          next &&
+          next !== "top" &&
+          next !== "bottom" &&
+          next !== "left" &&
+          next !== "right" &&
+          next !== "center"
+        )
+          return `${val} ${next}`;
       }
 
       return val;
-    }
-    else if (shorthand === 'border-width')
-    {
-      const borderVal = rule.style.getPropertyValue ('border');
+    } else if (shorthand === "border-width") {
+      const borderVal = rule.style.getPropertyValue("border");
 
-      if(borderVal)
-        return extractBorderWidthFromBorderShorthand (borderVal);
+      if (borderVal) return extractBorderWidthFromBorderShorthand(borderVal);
     }
   }
 
-      return null;
+  return null;
 }
- const BORDER_WIDTH_KEYWORDS = new Map([
-    ['thin', '1px'],
-    ['medium', '2px'],
-    ['thick', '3px']
-  ])
+const BORDER_WIDTH_KEYWORDS = new Map([
+  ["thin", "1px"],
+  ["medium", "2px"],
+  ["thick", "3px"],
+]);
 
 function extractBorderWidthFromBorderShorthand(value) {
- 
-  const parts = splitByOuterSpaces (value);
+  const parts = splitByOuterSpaces(value);
 
   for (const part of parts) {
     // If it's a length or keyword that matches border-width
     if (
       BORDER_WIDTH_KEYWORDS.has(part) // crude length match
     ) {
-      return BORDER_WIDTH_KEYWORDS.get (part);
-    }
-    else if ( /^[\d.]+(px|em|rem|%)?$/.test(part))
-      return part;
+      return BORDER_WIDTH_KEYWORDS.get(part);
+    } else if (/^[\d.]+(px|em|rem|%)?$/.test(part)) return part;
   }
 
   // fallback
@@ -2559,14 +2609,11 @@ function extractBorderWidthFromBorderShorthand(value) {
 let CSSRuleRef;
 let mediaBps;
 
-function assignOrderIndex(rules, state = {currOrder:0}) {
- 
-  for(const rule of rules)
-  {
+function assignOrderIndex(rules, state = { currOrder: 0 }) {
+  for (const rule of rules) {
     if (rule.type === CSSRuleRef.MEDIA_RULE)
-      assignOrderIndex (rule.cssRules, state);
-    else 
-      rule.order = state.currOrder++;
+      assignOrderIndex(rule.cssRules, state);
+    else rule.order = state.currOrder++;
   }
 }
 function processComments(rule) {
@@ -2591,16 +2638,15 @@ function processComments(rule) {
 }
 
 function parseRules(rules, bpIndex = 0) {
-
-  if(!CSSRuleRef)
-    CSSRuleRef = typeof CSSRule !== 'undefined' ? CSSRule :  findCSSRuleConstructor (rules);
-  
+  if (!CSSRuleRef)
+    CSSRuleRef =
+      typeof CSSRule !== "undefined" ? CSSRule : findCSSRuleConstructor(rules);
 
   if (bpIndex == 0) {
     const rulesArr = [...rules];
 
-    assignOrderIndex (rulesArr);
-    
+    assignOrderIndex(rulesArr);
+
     fluidVariableSelectors = {};
     prevValues = {};
 
@@ -2608,7 +2654,7 @@ function parseRules(rules, bpIndex = 0) {
       .filter(
         (rule) =>
           rule.type === CSSRuleRef.MEDIA_RULE &&
-          rule.media.mediaText.includes('(min-width:')
+          rule.media.mediaText.includes("(min-width:")
       )
       .map((rule) => {
         if (breakpoints && !usingPartials && !autoBreakpoints) {
@@ -2628,12 +2674,13 @@ function parseRules(rules, bpIndex = 0) {
       .sort((a, b) => a.width - b.width);
 
     if (autoBreakpoints) {
-      breakpoints = Array.from (new Set (mediaBps.map((mediaBp) => mediaBp.width)));
-     
+      breakpoints = Array.from(
+        new Set(mediaBps.map((mediaBp) => mediaBp.width))
+      );
+
       if (mediaBps.length <= 1 && !baseBreakpoint) return;
     }
-    if(baseBreakpoint)
-      breakpoints.unshift (baseBreakpoint);
+    if (baseBreakpoint) breakpoints.unshift(baseBreakpoint);
 
     parseNextValues(
       [...rules].filter((rule) => rule.type === CSSRuleRef.STYLE_RULE)
@@ -2648,14 +2695,12 @@ function parseRules(rules, bpIndex = 0) {
   }
 
   for (const rule of rules) {
-    
     if (rule.type === CSSRuleRef.STYLE_RULE) {
-
       let force;
       let spanStart;
       let spanEnd;
       let breakVal;
-     
+
       processComments(rule);
       let nextBp = rule.nextBp;
 
@@ -2667,40 +2712,46 @@ function parseRules(rules, bpIndex = 0) {
           : bpIndex + 1
         : null;
 
-
-      const selectors = rule.selectorText.split (',').map (s => s.trim());
-      for (const selector of selectors)
-      {
+      const selectors = rule.selectorText.split(",").map((s) => s.trim());
+      for (const selector of selectors) {
         let bps = fluidVariableSelectors[selector];
 
         for (const fluidPropertyName of fluidPropertyNames) {
-
-          let variableName =  autoApply
-            ? fluidPropertyName.replace('-min', '')
+          let variableName = autoApply
+            ? fluidPropertyName.replace("-min", "")
             : `${fluidPropertyName}`;
 
-          if(autoApply && shorthandValues[variableName])
-            continue;
-
+          if (autoApply && shorthandValues[variableName]) continue;
 
           let value;
 
           if (bps && !minimizedMode) {
-            const arr = [...bps.values()]
+            const arr = [...bps.values()];
             const lastBp = arr[arr.length - 1];
             if (lastBp) {
               const variableObj = lastBp[variableName];
-              if (variableObj) value = variableObj.maxValues.join(' ');
+              if (variableObj) value = variableObj.maxValues.join(" ");
             }
           }
 
           const explicitData = explicitValues[variableName];
-          
+
           const shorthand = explicitData ? explicitData[1] : null;
-          
-         spanEnd = spanEnd || rule.style.getPropertyValue ('--span-end')?.split (',').map (s => s.trim()) || [];
-          if (!value && (!minimizedMode || spanEnd.includes ('all') || spanEnd.includes (variableName))|| spanEnd.includes (shorthand))
-          {
+
+          spanEnd =
+            spanEnd ||
+            rule.style
+              .getPropertyValue("--span-end")
+              ?.split(",")
+              .map((s) => s.trim()) ||
+            [];
+          if (
+            (!value &&
+              (!minimizedMode ||
+                spanEnd.includes("all") ||
+                spanEnd.includes(variableName))) ||
+            spanEnd.includes(shorthand)
+          ) {
             value = prevValues[selector]?.[variableName];
           }
           if (!value) {
@@ -2709,150 +2760,170 @@ function parseRules(rules, bpIndex = 0) {
             else {
               value = rule.style
                 .getPropertyValue(
-                  autoApply && !variableName.startsWith('grid-auto') ? variableName : `--fluid-${variableName}`
+                  autoApply && !variableName.startsWith("grid-auto")
+                    ? variableName
+                    : `--fluid-${variableName}`
                 )
                 .trim();
             }
           }
 
-            
           if (!value && autoApply)
-            value = extractExplicitValue (rule, explicitData);
-          
+            value = extractExplicitValue(rule, explicitData);
 
-          if (!value || value.includes ('var(')) continue;
+          if (!value || value.includes("var(")) continue;
 
-          
-          
           const spanValue = value;
 
           let gridTemplateVarName;
-          if (value.includes ('auto-') && !value.includes ('--grid-auto'))
-          {
-            gridTemplateVarName = `${value.includes('-fit') ? 'grid-auto-fit' : 'grid-auto-fill'}`
-            if(variableName.includes ('rows'))
-              gridTemplateVarName += '-rows';
-            value = parseGridTemplateColumns (value);
-          }
-          else 
-          {
-            value = parseRepeat (value);
+          if (value.includes("auto-") && !value.includes("--grid-auto")) {
+            gridTemplateVarName = `${
+              value.includes("-fit") ? "grid-auto-fit" : "grid-auto-fill"
+            }`;
+            if (variableName.includes("rows")) gridTemplateVarName += "-rows";
+            value = parseGridTemplateColumns(value);
+          } else {
+            value = parseRepeat(value);
           }
 
-          spanStart = spanStart || rule.style.getPropertyValue ('--span-start')?.split(',').map (s => s.trim()) || [];
-          if (!minimizedMode || spanStart.includes ('all') || spanStart.includes (variableName) || spanStart.includes (shorthand)) {
-            if (!prevValues[selector])
-              prevValues[selector] = {};
+          spanStart =
+            spanStart ||
+            rule.style
+              .getPropertyValue("--span-start")
+              ?.split(",")
+              .map((s) => s.trim()) ||
+            [];
+          if (
+            !minimizedMode ||
+            spanStart.includes("all") ||
+            spanStart.includes(variableName) ||
+            spanStart.includes(shorthand)
+          ) {
+            if (!prevValues[selector]) prevValues[selector] = {};
 
             const prevValuesForRule = prevValues[selector];
 
             prevValuesForRule[variableName] = value;
           }
 
-          breakVal = breakVal || rule.style.getPropertyValue ('--break')?.split (',').map(s => s.trim()) || [];
-          const doBreak = breakVal.includes ('all') || breakVal.includes (variableName) || breakVal.includes (shorthand);
-    
-          let allCalcsParsed = parseAllCalcs (value);
-          
-          if(doBreak)
-          {
-            allCalcsParsed = allCalcsParsed.map (v => ['break', [v]]);
+          breakVal =
+            breakVal ||
+            rule.style
+              .getPropertyValue("--break")
+              ?.split(",")
+              .map((s) => s.trim()) ||
+            [];
+          const doBreak =
+            breakVal.includes("all") ||
+            breakVal.includes(variableName) ||
+            breakVal.includes(shorthand);
+
+          let allCalcsParsed = parseAllCalcs(value);
+
+          if (doBreak) {
+            allCalcsParsed = allCalcsParsed.map((v) => ["break", [v]]);
           }
-          
-          let minValues
+
+          let minValues;
           let maxValues;
           let isCombo = false;
-          if (autoApply || fluidPropertyName.includes('-min')) {
-        
+          if (autoApply || fluidPropertyName.includes("-min")) {
             minValues = allCalcsParsed;
             let maxVal;
             if (autoApply && minimizedMode) {
-          
               // Search future breakpoints for the same selector and variable
               const startIndex = mediaBps.findIndex(
                 ({ width }) => width === breakpoints[bpIndex + 1]
               );
               if (startIndex !== -1) {
-     
-              for (let i = startIndex; i < mediaBps.length; i++) {
-                const { cssRules, width } = mediaBps[i];
-                const futureVal = findMapReverse(cssRules, r =>
-                  {
-                    if(r.type === CSSRuleRef.STYLE_RULE &&
-                      r.selectorText.split(',').map(s => s.trim()).includes (selector))
-                    {
+                for (let i = startIndex; i < mediaBps.length; i++) {
+                  const { cssRules, width } = mediaBps[i];
+                  const futureVal = findMapReverse(cssRules, (r) => {
+                    if (
+                      r.type === CSSRuleRef.STYLE_RULE &&
+                      r.selectorText
+                        .split(",")
+                        .map((s) => s.trim())
+                        .includes(selector)
+                    ) {
                       let futureV = r.style.getPropertyValue(variableName);
 
-                      if(!futureV)
-                        futureV = extractExplicitValue (r, explicitData);
-
-                 
-
                       if (!futureV)
-                      {
-                        const spanEnd = r.style.getPropertyValue ('--span-end')?.split(',').map (s => s.trim()) || [];
-                        if (spanEnd.includes ('all') || spanEnd.includes (variableName) || spanEnd.includes (shorthand))
+                        futureV = extractExplicitValue(r, explicitData);
+
+                      if (!futureV) {
+                        const spanEnd =
+                          r.style
+                            .getPropertyValue("--span-end")
+                            ?.split(",")
+                            .map((s) => s.trim()) || [];
+                        if (
+                          spanEnd.includes("all") ||
+                          spanEnd.includes(variableName) ||
+                          spanEnd.includes(shorthand)
+                        )
                           return spanValue;
                       }
 
-                      if(futureV)
-                        return futureV;
+                      if (futureV) return futureV;
 
                       return;
                       //const explicitData = explicitValues[variableName];
-                      const shorthandData = shorthandValues[variableName]
-                      if(explicitData || !shorthandData)
-                      {
+                      const shorthandData = shorthandValues[variableName];
+                      if (explicitData || !shorthandData) {
                         let futureV = r.style.getPropertyValue(variableName);
-                        
-                        if(futureV)
-                          return futureV;
 
-                        if(false && explicitData)
-                        {
-                          futureV = r.style.getPropertyValue (explicitData[1]);
-                          if (futureV)
-                          {
-                            const vSpl = splitByOuterSpaces (futureV);
+                        if (futureV) return futureV;
+
+                        if (false && explicitData) {
+                          futureV = r.style.getPropertyValue(explicitData[1]);
+                          if (futureV) {
+                            const vSpl = splitByOuterSpaces(futureV);
                             const symmetryMap = explicitData[0];
-                            
+
                             const shorthandLength = vSpl.length;
                             const symmetryDir = explicitData[2];
-                            const shorthandIndex = symmetryMap.get (shorthandLength)[symmetryDir];
+                            const shorthandIndex =
+                              symmetryMap.get(shorthandLength)[symmetryDir];
                             return vSpl[shorthandIndex];
                           }
-                        }
-                        else if (false && shorthandData)
-                        {
+                        } else if (false && shorthandData) {
                           const symmetryMap = shorthandData[0];
                           const symmetry4 = symmetryMap.get(4);
                           const dirInfo = shorthandData[1];
 
-                          const futureExpl = new Array (4);
-                          
-                          for(const [dir, index] of Object.entries (symmetryMap.get(allCalcsParsed.length)))
+                          const futureExpl = new Array(4);
+
+                          for (const [dir, index] of Object.entries(
+                            symmetryMap.get(allCalcsParsed.length)
+                          ))
                             futureExpl[symmetry4[dir]] = allCalcsParsed[index];
-                          
-                          for(const [dirProp, dir] of Object.entries (dirInfo))
-                          {
+
+                          for (const [dirProp, dir] of Object.entries(
+                            dirInfo
+                          )) {
                             const index = symmetry4[dir];
-                            futureExpl[index] = r.style.getPropertyValue (dirProp);
+                            futureExpl[index] =
+                              r.style.getPropertyValue(dirProp);
                           }
 
-                          const futureShort = splitByOuterSpaces (r.style.getPropertyValue (variableName));
+                          const futureShort = splitByOuterSpaces(
+                            r.style.getPropertyValue(variableName)
+                          );
 
-                          for(const [dir, index] of Object.entries (symmetryMap.get(futureShort.length)))
-                          {
+                          for (const [dir, index] of Object.entries(
+                            symmetryMap.get(futureShort.length)
+                          )) {
                             const dir4 = symmetry4[dir];
                             if (!futureExpl[dir4])
                               futureExpl[dir4] = futureShort[index];
                           }
 
-                          return futureExpl.join (' ');
+                          return futureExpl.join(" ");
                         }
                       }
                     }
-                  })
+                  });
                   /*;[...cssRules].find((r) => {
                   //processComments(r);
                   return (
@@ -2863,71 +2934,69 @@ function parseRules(rules, bpIndex = 0) {
                   );
                 });*/
 
-                if (futureVal) {
-                  maxVal = futureVal.trim();
+                  if (futureVal) {
+                    maxVal = futureVal.trim();
 
-                  if (gridTemplateVarName)
-                  {
-                    maxVal = parseGridTemplateColumns (maxVal);
-                    variableName = gridTemplateVarName;
+                    if (gridTemplateVarName) {
+                      maxVal = parseGridTemplateColumns(maxVal);
+                      variableName = gridTemplateVarName;
+                    } else maxVal = parseRepeat(maxVal);
+
+                    nextBp = width;
+                    nextBpIndex = breakpoints.indexOf(width);
+                    break;
                   }
-                  else 
-                    maxVal = parseRepeat (maxVal);
-                  
-                  nextBp = width;
-                  nextBpIndex = breakpoints.indexOf(width);
-                  break;
                 }
               }
-              }
             }
-          
+
             if (!maxVal) {
               const maxField = autoApply
                 ? rule.style.getPropertyValue(`--${variableName}-max`)
-                : fluidPropertyName.replace('-min', '-max');
-              maxVal = rule.style.getPropertyValue(`--fluid-${maxField}`).trim();
+                : fluidPropertyName.replace("-min", "-max");
+              maxVal = rule.style
+                .getPropertyValue(`--fluid-${maxField}`)
+                .trim();
 
               if (!maxVal) {
-                force = force || rule.style.getPropertyValue ('--force')?.split(',').map(s => s.trim()) || [];
-                
-                
-           
-                if (force.includes ('all') || force.includes (variableName) || force.includes (shorthand))
-                {     
+                force =
+                  force ||
+                  rule.style
+                    .getPropertyValue("--force")
+                    ?.split(",")
+                    .map((s) => s.trim()) ||
+                  [];
+
+                if (
+                  force.includes("all") ||
+                  force.includes(variableName) ||
+                  force.includes(shorthand)
+                ) {
                   nextBpIndex = breakpoints.length - 1;
                   nextBp = breakpoints[nextBpIndex];
                   maxValues = minValues;
-                }
-                else 
-                {
+                } else {
                   continue;
                 }
               }
             }
 
-            if (!maxValues)
-            {
-              maxValues = parseAllCalcs (maxVal);   
-              if (maxValues.length !== minValues.length)
-              {
-                
-                if (clockSymmetry.includes (variableName))
-                {
-                  const eq = equalize (minValues, maxValues, clockMap);
+            if (!maxValues) {
+              maxValues = parseAllCalcs(maxVal);
+              if (maxValues.length !== minValues.length) {
+                if (clockSymmetry.includes(variableName)) {
+                  const eq = equalize(minValues, maxValues, clockMap);
                   minValues = eq[0];
                   maxValues = eq[1];
-                } else if (variableName === 'border-radius')
-                {
-                  if(minValues.includes('/'))
-                    continue;
-                  
-                  const eq = equalize (minValues, maxValues, borderMap);
+                } else if (variableName === "border-radius") {
+                  if (minValues.includes("/")) continue;
+
+                  const eq = equalize(minValues, maxValues, borderMap);
                   minValues = eq[0];
                   maxValues = eq[1];
                 }
               }
-          }
+            }
             isCombo = true;
           } else {
             const valueArr = allCalcsParsed;
@@ -2936,20 +3005,20 @@ function parseRules(rules, bpIndex = 0) {
           }
           let transition;
           if (bpIndex === 0 && autoTransition)
-            transition = rule.style.getPropertyValue('transition');
+            transition = rule.style.getPropertyValue("transition");
 
           //const unitsBase = minValues.length >= maxValues.length ? minValues : maxValues;
-          const minUnits = minValues.map (v => parseUnit(v, fluidPropertyName));
-          const maxUnits = maxValues.map(v => parseUnit (v, fluidPropertyName));
+          const minUnits = minValues.map((v) =>
+            parseUnit(v, fluidPropertyName)
+          );
+          const maxUnits = maxValues.map((v) =>
+            parseUnit(v, fluidPropertyName)
+          );
           //let unitValues = unitsBase.map((val) => parseUnit (val));
 
-          minValues = minValues.map((val) =>
-            parseSingleValFull (val)
-          );
-          maxValues = maxValues.map((val) =>
-            parseSingleValFull(val)
-          );
-      
+          minValues = minValues.map((val) => parseSingleValFull(val));
+          maxValues = maxValues.map((val) => parseSingleValFull(val));
+
           /*
           const rangeValues = minValues.map(
             (minVal, index) => { 
@@ -2967,56 +3036,53 @@ function parseRules(rules, bpIndex = 0) {
           //let bpApply =  bp;
           let bpIndexApply = bpIndex;
 
-
           let dynamic;
           let attribs = [];
           let root = selector;
           let isPseudo;
-          if (selector.includes (':'))
-          {
+          if (selector.includes(":")) {
             isPseudo = true;
-            root = stripToBaseSelector (selector);
-          }
-          else 
-          {
-             dynamic = rule.style.getPropertyValue ('--dynamic') === 'true';
+            root = stripToBaseSelector(selector);
+          } else {
+            dynamic = rule.style.getPropertyValue("--dynamic") === "true";
 
-            if (dynamic)
-            {
-              if (selector.includes ('['))
-              {
-                const attrMatches = selector.match(/\[(.+?)(?:[~|^$*]?=.+?)?\]/g) || [];
-                attribs = attrMatches.map(attr => attr.replace(/[\[\]=].*$/, ''));
+            if (dynamic) {
+              if (selector.includes("[")) {
+                const attrMatches =
+                  selector.match(/\[(.+?)(?:[~|^$*]?=.+?)?\]/g) || [];
+                attribs = attrMatches.map((attr) =>
+                  attr.replace(/[\[\]=].*$/, "")
+                );
               }
-              root = stripAttributeSelectors (stripClassModifiers (selector));
+              root = stripAttributeSelectors(stripClassModifiers(selector));
             }
           }
 
-          const chain = root.split (' ');
+          const chain = root.split(" ");
           const anchor = chain[chain.length - 1];
           //if (root !== selector)
-            //root = `${root}/${selector}`;
+          //root = `${root}/${selector}`;
 
           let anchorData = fluidVariableSelectors[anchor];
 
+          if (!anchorData) anchorData = fluidVariableSelectors[anchor] = [];
 
-          if(!anchorData)
-            anchorData = fluidVariableSelectors[anchor] = [];
+          let selectorData = anchorData.find(
+            ([root, selectorText]) => selectorText === selector
+          );
 
-          let selectorData = anchorData.find (([root, selectorText]) => selectorText === selector);
-
-          if (!selectorData)
-          {
+          if (!selectorData) {
             selectorData = [root, selector, []];
-            anchorData.push (selectorData);
+            anchorData.push(selectorData);
           }
 
-          let variableData = selectorData[2].find (([name]) => name === variableName);
+          let variableData = selectorData[2].find(
+            ([name]) => name === variableName
+          );
 
-          if(!variableData)
-          {
+          if (!variableData) {
             variableData = [variableName, []];
-            selectorData[2].push (variableData);
+            selectorData[2].push(variableData);
           }
           //if (!bps) fluidVariableSelectors[root] = bps = new Map();
 
@@ -3029,15 +3095,15 @@ function parseRules(rules, bpIndex = 0) {
           }
           
           */
-          const variableObj ={
+          const variableObj = {
             minValues,
             maxValues,
             minUnits,
             maxUnits,
           };
-          
-          variableData[1].push (variableObj);
-          
+
+          variableData[1].push(variableObj);
+
           if (isCombo) variableObj.isCombo = true;
           if (bpIndexApply !== -1) variableObj.bpIndex = bpIndexApply;
           //if (bpApply) variableObj.bp = bpApply;
@@ -3045,32 +3111,29 @@ function parseRules(rules, bpIndex = 0) {
           if (nextBpIndex) variableObj.nextBpIndex = nextBpIndex;
           if (transition) variableObj.transition = transition;
           if (dynamic) variableObj.dynamic = true;
-          if(variableData[1].length <= 1) variableObj.order = rule.order;
+          if (variableData[1].length <= 1) variableObj.order = rule.order;
           if (attribs.length > 0) variableObj.attribs = attribs;
           if (isPseudo) variableObj.isPseudo = true;
-          
         }
       }
     }
   }
   if (bpIndex === 0) {
-   
     for (const { cssRules, width } of mediaBps) {
-      const index = breakpoints.indexOf (width);
+      const index = breakpoints.indexOf(width);
       if (autoBreakpoints && index === 0) continue;
       cssRules.CSSRule = rules.CSSRule;
       parseRules(
         cssRules,
-        index,//breakpoints ? index : -1,
+        index, //breakpoints ? index : -1,
         width
       );
     }
   }
-  
 }
 
 function stripPseudoSelectors(selector) {
-  return selector.replace(/::?[a-zA-Z0-9\-\_()]+/g, '');
+  return selector.replace(/::?[a-zA-Z0-9\-\_()]+/g, "");
 }
 
 function stripClassModifiers(selector) {
@@ -3081,17 +3144,14 @@ function stripClassModifiers(selector) {
 }
 
 function stripAttributeSelectors(selector) {
-  return selector.replace(/\[[^\]]+\]/g, '');
+  return selector.replace(/\[[^\]]+\]/g, "");
 }
 
 function stripToBaseSelector(selector) {
   return stripAttributeSelectors(
-    stripClassModifiers(
-      stripPseudoSelectors(selector)
-    )
+    stripClassModifiers(stripPseudoSelectors(selector))
   ).trim();
 }
-
 
 function getJSON() {
   return {
@@ -3130,7 +3190,7 @@ function observeDomChanges(
       // Collect added nodes
       for (const node of mutation.addedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE) {
-          added.push(node, ...node.querySelectorAll('*'));
+          added.push(node, ...node.querySelectorAll("*"));
         }
       }
       // Collect removed nodes
@@ -3161,24 +3221,21 @@ export { FluidScale };
 let jsonLoaded;
 export async function loadJSON(path) {
   const originalPath = path;
-  
+
   let config;
   try {
-    const response = await fetch('/fluid-scale.config.json');
-    if (response.ok) 
-      config = await response.json();
+    const response = await fetch("/fluid-scale.config.json");
+    if (response.ok) config = await response.json();
 
-    if (config)
-      path = `/${config.outputDir}/${path}`;
-
+    if (config) path = `/${config.outputDir}/${path}`;
   } catch (err) {
     console.warn(
-      'Failed to load config. Runtime scan will be applied instead.'
+      "Failed to load config. Runtime scan will be applied instead."
     );
   }
 
   if (!config) return;
-  if (!path.endsWith('.json')) path += '.json';
+  if (!path.endsWith(".json")) path += ".json";
 
   try {
     const res = await fetch(path);
@@ -3186,7 +3243,7 @@ export async function loadJSON(path) {
     const json = await res.text();
 
     const revived = JSON.parse(json, (key, value) => {
-      if (value && value.__type__ === 'Map') {
+      if (value && value.__type__ === "Map") {
         return new Map(value.value);
       }
       return value;
@@ -3196,17 +3253,17 @@ export async function loadJSON(path) {
     fluidVariableSelectors = revived.fluidVariableSelectors;
     jsonLoaded = originalPath;
   } catch (err) {
-    console.warn('Failed to load JSON. Runtime scan will be applied instead.');
+    console.warn("Failed to load JSON. Runtime scan will be applied instead.");
   }
 }
 
 function waitForPageLoad(checkInterval = 100) {
-  return new Promise(resolve => {
-    if (document.readyState === 'complete') {
+  return new Promise((resolve) => {
+    if (document.readyState === "complete") {
       resolve();
       return;
     }
-window.addEventListener ('load', () => resolve (), {once:true});
+    window.addEventListener("load", () => resolve(), { once: true });
   });
 }
 function waitForJSON(path, checkInterval = 100) {
@@ -3221,8 +3278,8 @@ function waitForJSON(path, checkInterval = 100) {
 }
 
 export function nodeInit({
-  bps = 'auto',
-  baseBreakpoint : baseBp = null,
+  bps = "auto",
+  baseBreakpoint: baseBp = null,
   minBp,
   maxBp,
   usingPartials: usingPs = true,
@@ -3237,7 +3294,7 @@ export function nodeInit({
   maxBreakpoint = maxBp;
   usingPartials = usingPs;
   autoApply = autoApp;
-  autoBreakpoints = bps === 'auto';
+  autoBreakpoints = bps === "auto";
   autoTransition = autoT;
   minimizedMode = minMode;
   enableComments = customCmm;
@@ -3246,65 +3303,60 @@ export function nodeInit({
 export default async function init({
   autoObserve = true,
   root = autoObserve ? document.body : null,
-  breakpoints: bps = 'auto',
-  baseBreakpoint : baseBp, 
+  breakpoints: bps = "auto",
+  baseBreakpoint: baseBp,
   minBreakpoint: minBp,
   maxBreakpoint: maxBp,
   usingPartials: usingPs,
   checkUsage: checkUsg,
   autoApply: autoApp,
-  json = '',
+  json = "",
   autoTransition: autoT,
   minimizedMode: minMode,
   enableComments: customCmm,
   forceGPU = false,
-  usingJSON : usingJson,
-  scrollFix : scrollFx,
-  updateRate : updateRt
+  usingJSON: usingJson,
+  scrollFix: scrollFx,
+  updateRate: updateRt,
 } = {}) {
-  autoBreakpoints = bps === 'auto';
+  autoBreakpoints = bps === "auto";
   baseBreakpoint = baseBp;
   breakpoints = autoBreakpoints ? null : bps;
   minBreakpoint = minBp;
   maxBreakpoint = maxBp;
-  if (typeof usingPs === 'boolean') usingPartials = usingPs;
-  if (typeof autoApp === 'boolean') autoApply = autoApp;
-  if (typeof autoT === 'boolean' || autoT) autoTransition = autoT;
-  if (typeof minMode === 'boolean') minimizedMode = minMode;
-  if (typeof customCmm === 'boolean') enableComments = customCmm;
-  if (typeof updateRt === 'number') updateRate = updateRt;
-  if (typeof checkUsg === 'boolean') checkUsage = checkUsg;
-  if (typeof scrollFx === 'object' || typeof scrollFx === 'boolean') scrollFix = scrollFx;
-  if (typeof usingJson === 'boolean') usingJSON = usingJson;
+  if (typeof usingPs === "boolean") usingPartials = usingPs;
+  if (typeof autoApp === "boolean") autoApply = autoApp;
+  if (typeof autoT === "boolean" || autoT) autoTransition = autoT;
+  if (typeof minMode === "boolean") minimizedMode = minMode;
+  if (typeof customCmm === "boolean") enableComments = customCmm;
+  if (typeof updateRt === "number") updateRate = updateRt;
+  if (typeof checkUsg === "boolean") checkUsage = checkUsg;
+  if (typeof scrollFx === "object" || typeof scrollFx === "boolean")
+    scrollFix = scrollFx;
+  if (typeof usingJson === "boolean") usingJSON = usingJson;
 
-  
-  if(isProbablyDev ())
-  {
+  if (isProbablyDev()) {
     usingJSON = false;
-    json = '';
+    json = "";
   }
   viewportStarted = false;
 
-  if (scrollFix)
-    initScrollFix ();
+  if (scrollFix) initScrollFix();
 
   if (fluidScale) {
-    
     fluidScale.started = false;
     fluidScale.autoTransition = autoTransition;
     if (json) {
       observerPaused = true;
       await loadJSON(json);
       observerPaused = false;
-    }
-    else 
-    {
+    } else {
       stylesParsed = false;
-      await parseStyles (json, checkUsage);
+      await parseStyles(json, checkUsage);
     }
     fluidScale.addElements(root);
   } else {
-    const fs = await FluidScale.create (root, breakpoints, {
+    const fs = await FluidScale.create(root, breakpoints, {
       minBp,
       maxBp,
       observeDestroy: false,
@@ -3327,11 +3379,13 @@ export default async function init({
 }
 
 function isProbablyDev() {
+  if (typeof __ENV__ !== "undefined" && __ENV__ === "development") return true;
 
-  if (typeof __ENV__ !== 'undefined' && __ENV__ === 'development')
-    return true;
-  
-  return location.hostname === 'localhost' ||location.hostname === '0.0.0.0' || (location.hostname === '127.0.0.1' && location.port === '5000' );
+  return (
+    location.hostname === "localhost" ||
+    location.hostname === "0.0.0.0" ||
+    (location.hostname === "127.0.0.1" && location.port === "5000")
+  );
 }
 function findMap(array, mapFn) {
   for (const item of array) {
@@ -3350,31 +3404,30 @@ function findMapReverse(array, mapFn) {
 
 function containsDynamicPseudo(selector) {
   const dynamicPseudos = [
-    ':hover',
-    ':focus',
-    ':active',
-    ':visited',
-    ':focus-visible',
-    ':focus-within',
-    ':target',
-    ':checked',
-    ':indeterminate',
-    ':enabled',
-    ':disabled',
-    ':default',
-    ':valid',
-    ':invalid',
-    ':user-invalid',
-    ':required',
-    ':optional',
-    ':read-only',
-    ':read-write',
-    ':placeholder-shown'
+    ":hover",
+    ":focus",
+    ":active",
+    ":visited",
+    ":focus-visible",
+    ":focus-within",
+    ":target",
+    ":checked",
+    ":indeterminate",
+    ":enabled",
+    ":disabled",
+    ":default",
+    ":valid",
+    ":invalid",
+    ":user-invalid",
+    ":required",
+    ":optional",
+    ":read-only",
+    ":read-write",
+    ":placeholder-shown",
   ];
 
-  return dynamicPseudos.some(pseudo => selector.includes(pseudo));
+  return dynamicPseudos.some((pseudo) => selector.includes(pseudo));
 }
-
 
 function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   let fs = fluidScale;
@@ -3386,7 +3439,7 @@ function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
     }
 
     if (ref.current) {
-      const allEls = [ref.current, ...ref.current.querySelectorAll('*')];
+      const allEls = [ref.current, ...ref.current.querySelectorAll("*")];
       fs.addElements(allEls);
       const newBatch = {
         observer: observeDomChanges({
@@ -3411,60 +3464,51 @@ function fluidEffect(ref, breakpoints = null, minBp = null, maxBp = null) {
   }
 }
 
+function setInlineStyle(el, styles = {}) {
+  if (!el.state) el.state = {};
 
-
-function setInlineStyle (el, styles = {})
-{
-  if(!el.state)
-    el.state = {};
-
-const id = performance.now ();
-  for(const [key, val] of Object.entries (styles))
-  {
+  const id = performance.now();
+  for (const [key, val] of Object.entries(styles)) {
     const state = el.state[key] || {};
     state.inlineActive = true;
 
-    state.inlineQueue = state.inlineQueue || new Map ();
-    state.inlineQueue.set (id, val);
+    state.inlineQueue = state.inlineQueue || new Map();
+    state.inlineQueue.set(id, val);
 
     el.state[key] = state;
-    el.style.setProperty (key, val);
+    el.style.setProperty(key, val);
   }
 
-  const inlineStyle = 
-  {
-    undo: () =>  { 
-      const keys = Object.keys (styles);
+  const inlineStyle = {
+    undo: () => {
+      const keys = Object.keys(styles);
       const toUndo = [];
 
-      for(const key of keys)
-      {
+      for (const key of keys) {
         const state = el.state[key];
 
-        state.inlineQueue.delete (id);
-        if(state.inlineQueue.size > 0)
-        {
+        state.inlineQueue.delete(id);
+        if (state.inlineQueue.size > 0) {
           const inlineQueueEntries = [...map.entries()];
-          el.style.setProperty (key, inlineQueueEntries[inlineQueueEntries.length - 1]);
-        }
-        else 
-        {
-          toUndo.push (key);
+          el.style.setProperty(
+            key,
+            inlineQueueEntries[inlineQueueEntries.length - 1]
+          );
+        } else {
+          toUndo.push(key);
         }
       }
-      removeInlineStyle (el, toUndo)
-    }
-  }
-  return  inlineStyle;
+      removeInlineStyle(el, toUndo);
+    },
+  };
+  return inlineStyle;
 }
 
-function removeInlineStyle (el, styles = [])
-{
-  for(const key of styles)
-  {
+function removeInlineStyle(el, styles = []) {
+  for (const key of styles) {
     const state = el.state[key];
     state.inlineActive = false;
-    el.style.removeProperty (key);
+    el.style.removeProperty(key);
   }
 }
 export { fluidEffect, setInlineStyle, removeInlineStyle };
@@ -3473,5 +3517,5 @@ function getClassSelector(el) {
   return `${el.tagName.toLowerCase()}${el.className
     .split(/\s+/)
     .map((cls) => `.${cls}`)
-    .join('')}`;
+    .join("")}`;
 }
